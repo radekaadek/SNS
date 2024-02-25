@@ -71,7 +71,7 @@ def read_yuma(almanac_file):
         return (all_sat)
 
 
-def blh2xyz(fi, lam, h) -> np.array:
+def blh2xyz(fi, lam, h):
     '''
     Parameters
     ----------
@@ -203,9 +203,142 @@ def get_alm_data_str(alm_file):
     prns = create_prn_alm(alm_data) 
     return alm_data, prns    
 
+# 5 Wyznaczenie pozycji satelity - algorytm
+# Zestawienie stałych:
+# μ = 3.986005 · 1014[ m3
+# s2 ]
+# ωE = 7.2921151467 · 10−5[ rad
+# s ]
+# t – czas (w sekundach GPS), na który chcemy policzyć współrzędne satelity
+# 1. Czas jaki upłynął od epoki wyznaczenia almanachu (należy uwzględnić również tydzień GPS):
+# tk = t − toa (1)
+# 2. Obliczenie dużej półosi orbity:
+# a = (√a)2 (2)
+# 3. Wyznaczenie średniej prędkości kątowej n, znanej jako ruch średni (ang. mean motion) na podstawie
+# III prawa Kepplera:
+# n =
+# √ μ
+# a3 (3)
+# 4. Poprawiona anomalia średnia na epokę tk:
+# Mk = M0 + n · tk (4)
+# 5. Wyznaczenie anomalii mimośrodowej (Równanie Kepplera):
+# Ek = Mk + e sin(Ek) (5)
+# Równanie to należy rozwiązać w sposób iteracyjny: (dla i=1,2,3...)
+# E1 = Mk (6a)
+# Ei+1 = Mk + e sin(Ei) (6b)
+# Kryterium zakończenia obliczeń iteracyjnych wymaga spełnienia warunku: |Ei − Ei−1| < 10−12
+# 6. Wyznaczenie anomalii prawdziwej:
+# vk = arctan
+# ( √1 − e2 sin(Ek)
+# cos(Ek) − e
+# )
+# (7)
+# * skorzystać z funkcji arctan2 (odpowiednie ćwiartki dla arcus tangens):
+# 7. Wyznaczenie argumentu szerokości:
+# Φk = vk + ω (8)
+# 8. Wyznaczenie promienia orbity:
+# rk = a (1 − e cos(Ek)) (9)
+# 9. Wyznaczenie pozycji satelity w układzie orbity:
+# xk = rk · cos(Φk) (10a)
+# yk = rk · sin(Φk) (10b)
+# 10. Poprawiona długość węzła wstępującego:
+# Ωk = Ω0 +
+# ( ˙Ω − ωE
+# )
+# tk − ωE toa (11)
+# 11. Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
+# Xk = xk cos(Ωk) − yk cos(i) sin(Ωk) (12a)
+# Yk = xk sin(Ωk) + yk cos(i) cos(Ωk) (12b)
+# Zk = yk sin(i) (12c)
 
+# Wyjaśnienie symboli
+# Parametr Symbol Opis
+# Id prn numer PRN satelity
+# Health stan pracy satelity: 000 = usable
+# Eccentricity e ekscentr (mimośród) orbity
+# Time of Almanac (Aplicabi-
+# lity)
+# toa czas odniesienia almanachu, znacznik czasu (sekunda tygo-
+# dnia GPS)
+# Orbital Inclination i Kąt nachylenia płaszczyzny orbity do płaszczyzny równika
+# Rate of Right Ascension ˙Ω Tempo zmiany rektascenzji węzła wstępującego
+# SQRT(A) Square Root of
+# Semi-Major Axis
+# √a Pierwiastek z dużej półosi orbity, zdefiniowanej jako odle-
+# głość od środka orbity do punktu perygeum lub apogeum.
+# Right Ascension of Ascen-
+# ding Node (Longitude)
+# Ω0 Długość węzła wstępującego orbity na początek tygodnia
+# GPS
+# Argument of Perigee ω argument perygeum – Pomiar kątowy wzdłuż ścieżki orbi-
+# talnej mierzony od węzła wstępującego do punktu perygeum
+# (mierzony w kierunku ruchu SV).
+# Mean Anomaly M0 anomalia średnia, w perygeum = 0
+# Af0 αf0 opóźnienie zegara satelity
+# Af1 αf1 dryft zegara satelity
+# GPS Week numer tygodnia satelity, w przypadku formatu Trimble, li-
+# czony od początku skali czasu GPS (6.01.1980), w przypadku
+# formatu YUMA w przedziale 0000-1023 (licząc od 7.04.2019)
+
+# 1 Cel zadania
+# Opracowanie aplikacji, której celem jest przedstawienie wizualizacji parametrów związanych z
+# planowaniem pomiarów GNSS. Aplikacja powinna umożliwiać wizualizacje dla całej, dowolnej
+# doby (w zależności od daty wybranego almanachu). Aplikacja powinna również umożliwiać
+# wybór krótszego fragmentu doby.
+# 2 Schemat wykonywania obliczeń
+# 2.1 Ustawienia wejściowe
+# • wprowadzenie daty obliczeń – początek oraz koniec,
+# • wybór almanachu danych,
+# • wprowadzenie dowolnych współrzędnych miejsca obserwacji (współrzędne φ, λ, h),
+# • wprowadzenie maski obserwacji,
+# • zdefiniowanie interwału dla obliczeń (np. 10 minut – 10·60s),
+# • ustawienia dodatkowe: np. wybór lub odrzucenie poszczególnych satelitów/systemów
+# GNSS.
+# 2.2 Obliczenia wstępne
+# • odczytanie danych z almanachu:
+# * funkcja read_alm – wynikiem funkcji jest tablica nav_data z efemerydami, w której
+# każdy wiersz odpowiada osobnemu satelicie (opis i struktura danych w pliku z al-
+# gorytmem obliczeń współrzędnych satelity), funkcje create_prn_alm/get_alm_data
+# zwracają dodatkowo 3-znakowy identyfikator danego satelity, gdzie pierwszy znak jest
+# to identyfikator danego systemu GNSS, a dwa pozostałe to numer PRN.
+# * Uwaga! W danych może brakować niektórych satelitów, więc nie należy korzystać z
+# numeru wiersza jako identyfikatora numeru satelity – numer satelity znajduje się w
+# kolumnie 0 tablicy z efemerydami,
+# • przeliczenie podanej daty obliczeń do skali czasu GPS – numer tygodnia i sekunda,
+# • przeliczenie współrzędnych (φ, λ, h) do współrzędnych (X, Y, Z).
+# Kolejność obliczeń
+# Podstawowym elementem zadania jest obliczenie współrzędnych satelitów. Obliczenia te
+# można wykonać w dwojaki sposób:
+# 1. obliczenie współrzędnych wszystkich satelitów dla danej epoki i kolejno przejście do
+# kolejnej epoki i powtórzenie obliczeń dla pozostałych epok,
+# 2. obliczenie współrzędnych dla danego satelity dla wszystkich epok, a następnie
+# powtórzenie obliczeń dla kolejnych satelitów.
+# Preferowaną opcją jest opcja 1. (zdecydowanie)
+# 2
+# 2.3 Schemat obliczeń dla pojedynczej epoki
+# Dla pierwszego satelity
+# 1. pobranie danych efemerydalnych z tablicy nav dla danego satelity (jeden wiersz tablicy),
+# 2. obliczenie współrzędnych satelity,
+# 3. obliczenie elewacji i azymutu satelity, zgodnie ze schematem z prezentacji,
+# 4. sprawdzenie, czy satelita znajduje się powyżej maski elewacji, jeśli tak:
+# (a) wyznaczenie odpowiednich elementów wiersza macierzy A, odpowiadającego analizo-
+# wanemu satelicie,
+# (b) oznaczenie satelity jako satelita widoczny nad horyzontem,
+# 5. powtórzenie obliczeń dla kolejnego satelity z tablicy nav aż do ostatniego satelity.
+# • Po ukończeniu obliczeń dla wszystkich satelitów w pojedynczej epoce, należy złożyć wszyst-
+# kie obliczone wiersze macierzy A w jedną macierz i wykonać obliczenia współczynników
+# DOP;
+# • Należy skompletować wszystkie wyznaczone parametry (elewacje, azymuty, DOP, liczba
+# widocznych satelitów, ewentualnie współrzędne XYZ satelitów), co niezbędne będzie do
+# wykonania wizualizacji;
+# • Po ukończeniu obliczeń dla danej epoki, należy powtórzyć schemat dla kolejnej epoki, aż
+# do ostatniej epoki.
 import wget
 import os
+
+# constans
+c1 = 3.986005*10**14
+c2 = 7.2921151467*10**-5
 
 def download_alm(url, filename):
     if os.path.exists(filename):
@@ -219,9 +352,7 @@ nav, prn = get_alm_data_str(f)
 
 satelity = nav[:, 0]<400
 nav = nav[satelity]
-prn = np.array(prn)[satelity]
-
-print(prn)
+prn = np.array(prn)[satelity] # S, E, C, G, Q, R
 
 def get_gps_time(y,m,d,h=0, mnt=0,s=0):
     days = julday(y,m,d) - julday(1980,1,6)
@@ -230,8 +361,86 @@ def get_gps_time(y,m,d,h=0, mnt=0,s=0):
     sec_of_week = day*86400 + h*3600 + mnt*60 + s
     return week, sec_of_week
 
-y, m, d = 2024, 2, 22
 
-week, sec_of_week = get_gps_time(y,m,d)
-print(week, sec_of_week)
+def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
+    week, sec_of_week = get_gps_time(y,m,d,h,mnt,s)
+
+# 2. Obliczenie dużej półosi orbity:
+    a = (nav[:,3])**2
+# 3. Wyznaczenie średniej prędkości kątowej n, znanej jako ruch średni (ang. mean motion) na podstawie
+# III prawa Kepplera:
+    n = np.sqrt(c1/a**3)
+# 4. Poprawiona anomalia średnia na epokę tk:
+    Mk = nav[:,6] + n*sec_of_week
+# 5. Wyznaczenie anomalii mimośrodowej (Równanie Kepplera):
+    E = Mk
+    for i in range(100):
+        E = Mk + nav[:,2]*np.sin(E)
+        if np.abs(E[i] - E[i-1]) < 10**-12:
+            break
+# 6. Wyznaczenie anomalii prawdziwej:
+    v = np.arctan(np.sqrt(1 - nav[:,2]**2)*np.sin(E)/(np.cos(E) - nav[:,2]))
+# 7. Wyznaczenie argumentu szerokości:
+    phi = v + nav[:,5]
+# 8. Wyznaczenie promienia orbity:
+    r = a*(1 - nav[:,2]*np.cos(E))
+# 9. Wyznaczenie pozycji satelity w układzie orbity:
+    x = r*np.cos(phi)
+    y = r*np.sin(phi)
+# 10. Poprawiona długość węzła wstępującego:
+    Omega = nav[:,4] + (nav[:,9] - c2)*sec_of_week - c2*nav[:,3]
+# 11. Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
+    X = x*np.cos(Omega) - y*np.cos(nav[:,8])*np.sin(Omega)
+    Y = x*np.sin(Omega) + y*np.cos(nav[:,8])*np.cos(Omega)
+    Z = y*np.sin(nav[:,8])
+    return X, Y, Z
+
+# 3 Wizualizacja
+# 3.1 Wizualizacja dla całej doby
+# Wizualizacja dla całej doby powinna zawierać:
+# • wykres widoczności satelitów w funkcji czasu (dla każdego satelity osobno),
+# • wykres DOP w funkcji czasu,
+# • wykres liczby widocznych satelitów w funkcji czasu,
+# • wykres współrzędnych XYZ satelitów w funkcji czasu,
+# • wykres współrzędnych XYZ odbiornika w funkcji czasu,
+# • wykres błędów pozycjonowania w funkcji czasu.
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+# find satelites in the GPS system
+idxs = [i for i, prn in enumerate(prn) if prn[0] == 'G']
+
+hours_in_day = 24
+minutes_in_hour = 60
+satelite = nav
+positions = []
+for idx in idxs:
+    for i in range(minutes_in_hour):
+        X, Y, Z = get_satellite_position(satelite, 2023, 4, 15, 0, i)
+        positions.append([X[idx], Y[idx], Z[idx]])
+
+positions = np.array(positions)
+
+# show a 3d plot the positions of the first satelite during one day every hour
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_title('GPS satalites positions')
+
+# draw the earth as an ellipsoid
+a = 6378137.0
+b = 6356752.3142
+phi = np.linspace(0, 2*np.pi, 100)
+theta = np.linspace(0, np.pi, 100)
+phi, theta = np.meshgrid(phi, theta)
+X = a*np.sin(theta)*np.cos(phi)
+Y = a*np.sin(theta)*np.sin(phi)
+Z = b*np.cos(theta)
+ax.plot_surface(X, Y, Z, color='b', alpha=0.1)
+
+ax.scatter(positions[:,0], positions[:,1], positions[:,2], c='r', marker='o')
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+plt.show()
 
