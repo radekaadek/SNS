@@ -364,6 +364,8 @@ def get_gps_time(y,m,d,h=0, mnt=0,s=0):
 
 def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     week, sec_of_week = get_gps_time(y,m,d,h,mnt,s)
+# 1. Czas jaki upłynął od epoki wyznaczenia almanachu (należy uwzględnić również tydzień GPS):
+    tk = sec_of_week - nav[:,7]
 
 # 2. Obliczenie dużej półosi orbity:
     a = (nav[:,3])**2
@@ -371,7 +373,7 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
 # III prawa Kepplera:
     n = np.sqrt(c1/a**3)
 # 4. Poprawiona anomalia średnia na epokę tk:
-    Mk = nav[:,6] + n*sec_of_week
+    Mk = nav[:,6] + n*tk
 # 5. Wyznaczenie anomalii mimośrodowej (Równanie Kepplera):
     E = Mk
     for i in range(100):
@@ -408,6 +410,10 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+year = 2023
+month = 4
+day = 15
+
 # find satelites in the GPS system
 idxs = [i for i, prn in enumerate(prn) if prn[0] == 'G']
 
@@ -417,15 +423,12 @@ satelite = nav
 positions = []
 for idx in idxs:
     for i in range(minutes_in_hour):
-        X, Y, Z = get_satellite_position(satelite, 2023, 4, 15, 0, i)
-        positions.append([X[idx], Y[idx], Z[idx]])
+        for j in range(hours_in_day):
+            X, Y, Z = get_satellite_position(satelite, year, month, day, j, i)
+            positions.append([X[idx], Y[idx], Z[idx]])
 
 positions = np.array(positions)
 
-# show a 3d plot the positions of the first satelite during one day every hour
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.set_title('GPS satalites positions')
 
 # draw the earth as an ellipsoid
 a = 6378137.0
@@ -433,14 +436,41 @@ b = 6356752.3142
 phi = np.linspace(0, 2*np.pi, 100)
 theta = np.linspace(0, np.pi, 100)
 phi, theta = np.meshgrid(phi, theta)
-X = a*np.sin(theta)*np.cos(phi)
-Y = a*np.sin(theta)*np.sin(phi)
-Z = b*np.cos(theta)
-ax.plot_surface(X, Y, Z, color='b', alpha=0.1)
+earth_X = a*np.sin(theta)*np.cos(phi)
+earth_Y = a*np.sin(theta)*np.sin(phi)
+earth_Z = b*np.cos(theta)
 
-ax.scatter(positions[:,0], positions[:,1], positions[:,2], c='r', marker='o')
+positions_to_draw = []
+for hour in range(hours_in_day):
+    for minute in range(minutes_in_hour):
+        X, Y, Z = get_satellite_position(satelite, 2023, 4, 15, hour, minute)
+        positions_to_draw.append([X[idxs], Y[idxs], Z[idxs]])
+
+
+# animated plot of the satelite positions every 5 minutes during one day
+# set plot to be interactive
+plt.ion()
+
+# show a 3d plot the positions of the first satelite during one day every 5 minutes
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_xlim(max(positions[:,0]), min(positions[:,0]))
+ax.set_ylim(max(positions[:,1]), min(positions[:,1]))
+ax.set_zlim(max(positions[:,2]), min(positions[:,2]))
+ax.set_title('GPS satalites positions')
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
-plt.show()
-
+# set scale to a constant value
+ax.plot_surface(earth_X, earth_Y, earth_Z, color='b', alpha=0.1)
+scat = ax.scatter(positions_to_draw[0][0], positions_to_draw[0][1], positions_to_draw[0][2], c='r', marker='o')
+# start drawing the lines and adding the points
+for i in range(len(positions_to_draw)):
+    scat.remove()
+    scat = ax.scatter(positions_to_draw[i][0], positions_to_draw[i][1], positions_to_draw[i][2], c='r', marker='o')
+    # change the title to show the current time
+    hour = i // 60
+    minute = i % 60
+    # show 2 digits for the minutes and hours
+    ax.set_title(f'GPS satalites positions at {year}.{month}.{day} {hour:02d}:{minute:02d}')
+    plt.pause(0.1)
