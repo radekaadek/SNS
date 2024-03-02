@@ -335,9 +335,6 @@ def get_alm_data_str(alm_file):
 # wykonania wizualizacji;
 # • Po ukończeniu obliczeń dla danej epoki, należy powtórzyć schemat dla kolejnej epoki, aż
 # do ostatniej epoki.
-import wget
-import os
-import itertools
 
 # constans
 c1 = 3.986005* (10**14)
@@ -426,20 +423,24 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     print(f"Orbit position: {x}, {y}")
 # 10. Poprawiona długość węzła wstępującego:
     if nav.ndim == 1:
-        Omega = nav[4] + (nav[9] - c2)*sec_of_week - c2*nav[3]
+        rora_rad = np.radians(nav[4]*1000)
+        omega_k = np.radians(nav[4]) + (rora_rad - c2)*tk - c2*toa
     else:
-        Omega = nav[:,4] + (nav[:,9] - c2)*sec_of_week - c2*nav[:,3]
-    print(f"Longitude of ascending node: {Omega}")
+        rora_rad = np.radians(nav[:,4]*1000)
+        omega_k = np.radians(nav[:,4]) + (rora_rad - c2)*tk - c2*toa
+    print(f"Corrected longitude of ascending node: {omega_k}")
 # 11. Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
     if nav.ndim == 1:
-        X = x*np.cos(Omega) - y*np.cos(nav[8])*np.sin(Omega)
-        Y = x*np.sin(Omega) + y*np.cos(nav[8])*np.cos(Omega)
-        Z = y*np.sin(nav[8])
+        i = np.radians(54 + nav[8])
+        X = x*np.cos(omega_k) - y*np.cos(i)*np.sin(omega_k)
+        Y = x*np.sin(omega_k) + y*np.cos(i)*np.cos(omega_k)
+        Z = y*np.sin(i)
     else:
-        X = x*np.cos(Omega) - y*np.cos(nav[:,8])*np.sin(Omega)
-        Y = x*np.sin(Omega) + y*np.cos(nav[:,8])*np.cos(Omega)
-        Z = y*np.sin(nav[:,8])
-    print(f"Position in ECEF: {X}, {Y}, {Z}")
+        i = np.radians(54 + nav[:,8])
+        X = x*np.cos(omega_k) - y*np.cos(i)*np.sin(omega_k)
+        Y = x*np.sin(omega_k) + y*np.cos(i)*np.cos(omega_k)
+        Z = y*np.sin(i)
+    print(f"Satellite position: {X}, {Y}, {Z}")
     return X, Y, Z
 
 y, m, d = 2024, 2, 29
