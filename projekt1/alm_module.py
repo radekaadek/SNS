@@ -342,10 +342,10 @@ c2 = 7.2921151467* (10**-5)
 
 f = 'Almanac2024053.alm'
 
-nav, prn = get_alm_data_str(f)
+n, prn = get_alm_data_str(f)
 
-satelity = nav[:, 0]<400
-nav = nav[satelity]
+satelity = n[:, 0]<400
+n = n[satelity]
 prn = np.array(prn)[satelity] # S, E, C, G, Q, R
 
 def get_gps_time(y,m,d,h=0, mnt=0,s=0):
@@ -358,7 +358,7 @@ def get_gps_time(y,m,d,h=0, mnt=0,s=0):
 
 def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     week, sec_of_week = get_gps_time(y,m,d,h,mnt,s)
-    print(f"Week: {week}, Second of week: {sec_of_week}")
+    # print(f"Week: {week}, Second of week: {sec_of_week}")
 # 1. Czas jaki upłynął od epoki wyznaczenia almanachu (należy uwzględnić również tydzień GPS):
     # check if nav is a single row
     if nav.ndim == 1:
@@ -373,62 +373,66 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
         toa = nav[0, 7]
         actual_nav = gps_week * 7 * 86400 + toa
         tk = actual_sec - actual_nav
-    print(f"Time from almanach: {tk}")
+    # print(f"Time from almanach: {tk}")
 # 2. Obliczenie dużej półosi orbity:
     if nav.ndim == 1:
         a = (nav[3])**2
     else:
         a = (nav[:,3])**2
-    print(f"Major axis: {a}")
+    # print(f"Major axis: {a}")
 # 3. Wyznaczenie średniej prędkości kątowej n, znanej jako ruch średni (ang. mean motion) na podstawie
 # III prawa Kepplera:
     n = np.sqrt(c1/a**3)
-    print(f"Mean motion: {n}")
+    # print(f"Mean motion: {n}")
 # 4. Poprawiona anomalia średnia na epokę tk:
     if nav.ndim == 1:
         Mk = np.radians(nav[6]) + n*tk
     else:
         Mk = np.radians(nav[:,6]) + n*tk
         # convert to radians
-    print(f"Mean anomaly: {Mk}")
+    # print(f"Mean anomaly: {Mk}")
 # 5. Wyznaczenie anomalii mimośrodowej (Równanie Kepplera):
     E = Mk
     error = 1
-    while error > 10**-12:
-        E_new = Mk + nav[2]*np.sin(E)
-        error = np.abs(E - E_new)
-        E = E_new
-    print(f"Eccentric anomaly: {E}")
+    if nav.ndim == 1:
+        while error > 10**-12:
+            E_new = Mk + nav[2]*np.sin(E)
+            error = np.abs(E - E_new)
+            E = E_new
+    else:
+        while error > 10**-12:
+            E_new = Mk + nav[:,2]*np.sin(E)
+            error = max(np.abs(E - E_new))
+            E = E_new
+    # print(f"Eccentric anomaly: {E}")
 # 6. Wyznaczenie anomalii prawdziwej:
     if nav.ndim == 1:
         v = np.arctan(np.sqrt(1 - nav[2]**2)*np.sin(E)/(np.cos(E) - nav[2]))
     else:
         v = np.arctan(np.sqrt(1 - nav[:,2]**2)*np.sin(E)/(np.cos(E) - nav[:,2]))
-    print(f"True anomaly: {v}")
+    # print(f"True anomaly: {v}")
 # 7. Wyznaczenie argumentu szerokości:
     if nav.ndim == 1:
         phi = v + np.radians(nav[5])
     else:
         phi = v + np.radians(nav[:,5])
-    print(f"Argument of latitude: {phi}")
+    # print(f"Argument of latitude: {phi}")
 # 8. Wyznaczenie promienia orbity:
     if nav.ndim == 1:
         r = a*(1 - nav[2]*np.cos(E))
     else:
         r = a*(1 - nav[:,2]*np.cos(E))
-    print(f"Orbit radius: {r}")
+    # print(f"Orbit radius: {r}")
 # 9. Wyznaczenie pozycji satelity w układzie orbity:
     x = r*np.cos(phi)
     y = r*np.sin(phi)
-    print(f"Orbit position: {x}, {y}")
+    # print(f"Orbit position: {x}, {y}")
 # 10. Poprawiona długość węzła wstępującego:
     if nav.ndim == 1:
-        rora_rad = np.radians(nav[4]*1000)
-        omega_k = np.radians(nav[4]) + (rora_rad - c2)*tk - c2*toa
+        omega_k = np.radians(nav[4]) + (np.radians(nav[9]/1000) - c2)*tk - c2*nav[7]
     else:
-        rora_rad = np.radians(nav[:,4]*1000)
-        omega_k = np.radians(nav[:,4]) + (rora_rad - c2)*tk - c2*toa
-    print(f"Corrected longitude of ascending node: {omega_k}")
+        omega_k = np.radians(nav[:,4]) + (np.radians(nav[:,9]/1000) - c2)*tk - c2*nav[:,7]
+    # print(f"Corrected longitude of ascending node: {omega_k}")
 # 11. Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
     if nav.ndim == 1:
         i = np.radians(54 + nav[8])
@@ -440,11 +444,11 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
         X = x*np.cos(omega_k) - y*np.cos(i)*np.sin(omega_k)
         Y = x*np.sin(omega_k) + y*np.cos(i)*np.cos(omega_k)
         Z = y*np.sin(i)
-    print(f"Satellite position: {X}, {Y}, {Z}")
+    # print(f"Satellite position: {X}, {Y}, {Z}")
     return X, Y, Z
 
 y, m, d = 2024, 2, 29
-get_satellite_position(nav[0], y,m,d,12,0,0)
+
 
 # 3 Wizualizacja
 # 3.1 Wizualizacja dla całej doby
@@ -456,72 +460,110 @@ get_satellite_position(nav[0], y,m,d,12,0,0)
 # • wykres współrzędnych XYZ odbiornika w funkcji czasu,
 # • wykres błędów pozycjonowania w funkcji czasu.
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-
-
-# year = 2023
-# month = 4
-# day = 15
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+#
+# year, month, day = y, m, d
+#
 #
 # # find satelites only in the GPS system
-# idxs = [i for i, prn in enumerate(prn) if prn[0] == 'G']
+# # use get_prn_number function 
+# gps_satelites = [sat for i, sat in enumerate(n) if prn[i][0] == 'G']
 #
-# hours_in_day = 24
-# minutes_in_hour = 60
-# satelite = nav
+# # calculate position of the satelites for the whole day
+# hours = np.arange(0, 24, 1)
+# minutes = np.arange(0, 60, 1)
 # positions = []
-# for idx in idxs:
-#     for i in range(minutes_in_hour):
-#         for j in range(hours_in_day):
-#             X, Y, Z = get_satellite_position(satelite, year, month, day, j, i)
-#             positions.append([X[idx], Y[idx], Z[idx]])
+# for h in hours:
+#     for m in minutes:
+#         minute_positions = []
+#         for satelite in gps_satelites:
+#             x, y, z = get_satellite_position(satelite, year, month, day, h, m)
+#             minute_positions.append([x, y, z])
+#         positions.append(minute_positions)
 #
-# positions = np.array(positions)
-#
-#
-# # draw the earth as an ellipsoid
-# a = 6_378_137.0
-# b = 6_356_752.314_140_347 
+# # draw the earth as a mesh
+# fig = plt.figure()
+# a = 6378137.0
+# b = 6356752.3142
 # phi = np.linspace(0, 2*np.pi, 100)
 # theta = np.linspace(0, np.pi, 100)
 # phi, theta = np.meshgrid(phi, theta)
-# earth_X = a*np.sin(theta)*np.cos(phi)
-# earth_Y = a*np.sin(theta)*np.sin(phi)
-# earth_Z = b*np.cos(theta)
-#
-# positions_to_draw = []
-# for hour in range(hours_in_day):
-#     for minute in range(minutes_in_hour):
-#         X, Y, Z = get_satellite_position(satelite, 2023, 4, 15, hour, minute)
-#         positions_to_draw.append([X[idxs], Y[idxs], Z[idxs]])
-#
-#
-# # animated plot of the satelite positions every 5 minutes during one day
-# # set plot to be interactive
-# plt.ion()
-#
-# # show a 3d plot the positions of the first satelite during one day every 5 minutes
-# fig = plt.figure()
+# x = a*np.sin(theta)*np.cos(phi)
+# y = a*np.sin(theta)*np.sin(phi)
+# z = b*np.cos(theta)
 # ax = fig.add_subplot(111, projection='3d')
-# ax.set_xlim(max(positions[:,0]), min(positions[:,0]))
-# ax.set_ylim(max(positions[:,1]), min(positions[:,1]))
-# ax.set_zlim(max(positions[:,2]), min(positions[:,2]))
-# ax.set_title('GPS satalites positions')
+# ax.plot_surface(x, y, z, color='b', alpha=0.1)
+#
+# # add labels
 # ax.set_xlabel('X')
 # ax.set_ylabel('Y')
 # ax.set_zlabel('Z')
-# # set scale to a constant value
-# ax.plot_surface(earth_X, earth_Y, earth_Z, color='b', alpha=0.1)
-# scat = ax.scatter(positions_to_draw[0][0], positions_to_draw[0][1], positions_to_draw[0][2], c='r', marker='o')
-# # start drawing the lines and adding the points
-# for i in range(len(positions_to_draw)):
-#     scat.remove()
-#     scat = ax.scatter(positions_to_draw[i][0], positions_to_draw[i][1], positions_to_draw[i][2], c='r', marker='o')
-#     # change the title to show the current time
-#     hour = i // 60
-#     minute = i % 60
-#     # show 2 digits for the minutes and hours
-#     ax.set_title(f'GPS satalites positions at {year}.{month}.{day} {hour:02d}:{minute:02d}')
-#     plt.pause(0.1)
+#
+# # draw the satelites
+# for h in range(24):
+#     for m in range(60):
+#         # rename the plot
+#         ax.set_title(f"Satelite positions at {h:02d}:{m:02d} UTC")
+#         scattered = np.array(positions[h*60 + m])
+#         # check scattered dimensions
+#         if scattered.size > 0:
+#             s = ax.scatter(scattered[:,0], scattered[:,1], scattered[:,2], c='r', marker='o')
+#         else:
+#             s = ax.scatter([], [], [], c='r', marker='o')
+#         plt.pause(0.01)
+#         s.remove()
+#
+
+def Rneu(phi, lamb) -> np.array:
+    '''
+    Parameters
+    ----------
+    phi : float
+        latitude [rad].
+    lamb : float
+        longitude [rad].
+    Returns
+    -------
+    R : numpy array
+        rotation matrix.
+    '''
+    R = np.array([[-np.sin(phi)*np.cos(lamb), -np.sin(lamb), -np.cos(phi)*np.cos(lamb)],
+                    [-np.sin(phi)*np.sin(lamb), np.cos(lamb), -np.cos(phi)*np.sin(lamb)],
+                    [np.cos(phi), 0, -np.sin(phi)]])
+    return R
+
+import pyproj
+
+odbiorkik_fi = 52
+odbiornik_lam = 21
+odbiornik_h = 100
+
+s_xyz = np.array(get_satellite_position(n[0], y,m,d,12,0,0))
+r_xyz = np.array(blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h))
+print(f"Wspolrzedne XYZ odbiornika: {blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h)}")
+print(f"Wspolrzedne XYZ satelity: {s_xyz}")
+xyz_sr = s_xyz - r_xyz
+print(f"Wektor XYZ satelity - odbiornika: {xyz_sr}")
+R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
+neu = R.T.dot(xyz_sr)
+print(f"Wektor NEU: {neu}")
+Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
+if Az < 0:
+    Az = Az + 360
+s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
+z = 90 - np.rad2deg(np.arcsin(neu[2]/s))
+if z < 0:
+    z = z + 360
+print(f"Azymut: {Az}, Elewacja: {z}")
+maska = 10
+if z > maska:
+    print("Satelita jest widoczny")
+    A = np.array([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
+# xyz to blh
+transformer = pyproj.Transformer.from_proj(
+    pyproj.Proj(proj='geocent', datum='WGS84'),
+    pyproj.Proj(proj='latlong', datum='WGS84'),
+    always_xy=True)
+
+
