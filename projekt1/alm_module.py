@@ -5,9 +5,8 @@ Created on Wed Feb 15 15:42:24 2023
 @author: mgrzy
 """
 
-
-from mpl_toolkits.mplot3d.axes3d import get_test_data
 import numpy as np
+np.set_printoptions(suppress=True)
 import math
 
 def julday(y,m,d,h=0):
@@ -447,7 +446,6 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     # print(f"Satellite position: {X}, {Y}, {Z}")
     return X, Y, Z
 
-y, m, d = 2024, 2, 29
 
 
 # 3 Wizualizacja
@@ -535,35 +533,62 @@ def Rneu(phi, lamb) -> np.array:
 
 import pyproj
 
+y, m, d = 2024, 2, 29
+
 odbiorkik_fi = 52
 odbiornik_lam = 21
 odbiornik_h = 100
 
-s_xyz = np.array(get_satellite_position(n[0], y,m,d,12,0,0))
-r_xyz = np.array(blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h))
-print(f"Wspolrzedne XYZ odbiornika: {blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h)}")
-print(f"Wspolrzedne XYZ satelity: {s_xyz}")
-xyz_sr = s_xyz - r_xyz
-print(f"Wektor XYZ satelity - odbiornika: {xyz_sr}")
-R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
-neu = R.T.dot(xyz_sr)
-print(f"Wektor NEU: {neu}")
-Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
-if Az < 0:
-    Az = Az + 360
-s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
-z = 90 - np.rad2deg(np.arcsin(neu[2]/s))
-if z < 0:
-    z = z + 360
-print(f"Azymut: {Az}, Elewacja: {z}")
-maska = 10
-if z > maska:
-    print("Satelita jest widoczny")
-    A = np.array([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
-# xyz to blh
-transformer = pyproj.Transformer.from_proj(
-    pyproj.Proj(proj='geocent', datum='WGS84'),
-    pyproj.Proj(proj='latlong', datum='WGS84'),
-    always_xy=True)
+# filter n by only GPS satelites
+gps_satelites = [sat for i, sat in enumerate(n) if prn[i][0] == 'G']
+# filter only healthy satelites
+gps_satelites = [sat for sat in gps_satelites if sat[1] == 0]
+print(len(gps_satelites))
 
+print(f"Wspolrzedne XYZ odbiornika: {blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h)}")
+satelites = []
+A = []
+for sat in gps_satelites:
+    s_xyz = np.array(get_satellite_position(sat, y,m,d,12,0,0))
+    r_xyz = np.array(blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h))
+    print(f"Wspolrzedne XYZ satelity: {s_xyz}")
+    xyz_sr = s_xyz - r_xyz
+    print(f"Wektor XYZ satelity - odbiornika: {xyz_sr}")
+    R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
+    neu = R.T.dot(xyz_sr)
+    print(f"Wektor NEU: {neu}")
+    Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
+    if Az < 0:
+        Az = Az + 360
+    s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
+    z = np.rad2deg(np.arcsin(neu[2]/s))
+    print(f"Elewacja: {z}, Azymut: {Az}")
+    maska = 10
+    if z > maska:
+        satelites.append(sat)
+        A.append([-(s_xyz)[0]/s, -(s_xyz)[1]/s, -(s_xyz)[2]/s, 1])
+    print('\n')
+
+A = np.array(A)
+print(f"Macierz A:\n {A}\n")
+Q = np.linalg.inv(A.T.dot(A))
+print(f"Macierz Q:\n {Q}\n")
+
+TDOP = np.sqrt(Q[3,3])
+PDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2])
+GDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2] + Q[3,3])
+
+R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
+Qneu = R.T.dot(Q[:3,:3].dot(R))
+print(f"Macierz Qneu:\n {Qneu}\n")
+HDOP = np.sqrt(Qneu[0,0] + Qneu[1,1])
+VDOP = np.sqrt(Qneu[2,2])
+PDOPneu = np.sqrt(Qneu[0,0] + Qneu[1,1] + Qneu[2,2])
+
+print("Współczynniki DOP")
+print(f"GDOP: {GDOP}")
+print(f"PDOP: {PDOP}")
+print(f"TDOP: {TDOP}")
+print(f"HDOP: {HDOP}")
+print(f"VDOP: {VDOP}")
 
