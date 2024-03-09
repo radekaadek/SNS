@@ -335,17 +335,6 @@ def get_alm_data_str(alm_file):
 # • Po ukończeniu obliczeń dla danej epoki, należy powtórzyć schemat dla kolejnej epoki, aż
 # do ostatniej epoki.
 
-# constans
-c1 = 3.986005* (10**14)
-c2 = 7.2921151467* (10**-5)
-
-f = 'Almanac2024053.alm'
-
-n, prn = get_alm_data_str(f)
-
-satelity = n[:, 0]<400
-n = n[satelity]
-prn = np.array(prn)[satelity] # S, E, C, G, Q, R
 
 def get_gps_time(y,m,d,h=0, mnt=0,s=0):
     days = julday(y,m,d) - julday(1980,1,6)
@@ -447,6 +436,24 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     return X, Y, Z
 
 
+def Rneu(phi, lamb):
+    '''
+    Parameters
+    ----------
+    phi : float
+        latitude [rad].
+    lamb : float
+        longitude [rad].
+    Returns
+    -------
+    R : numpy array
+        rotation matrix.
+    '''
+    R = np.array([[-np.sin(phi)*np.cos(lamb), -np.sin(lamb), -np.cos(phi)*np.cos(lamb)],
+                    [-np.sin(phi)*np.sin(lamb), np.cos(lamb), -np.cos(phi)*np.sin(lamb)],
+                    [np.cos(phi), 0, -np.sin(phi)]])
+    return R
+
 
 # 3 Wizualizacja
 # 3.1 Wizualizacja dla całej doby
@@ -513,25 +520,17 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
 #         s.remove()
 #
 
-def Rneu(phi, lamb) -> np.array:
-    '''
-    Parameters
-    ----------
-    phi : float
-        latitude [rad].
-    lamb : float
-        longitude [rad].
-    Returns
-    -------
-    R : numpy array
-        rotation matrix.
-    '''
-    R = np.array([[-np.sin(phi)*np.cos(lamb), -np.sin(lamb), -np.cos(phi)*np.cos(lamb)],
-                    [-np.sin(phi)*np.sin(lamb), np.cos(lamb), -np.cos(phi)*np.sin(lamb)],
-                    [np.cos(phi), 0, -np.sin(phi)]])
-    return R
+# constans
+c1 = 3.986005* (10**14)
+c2 = 7.2921151467* (10**-5)
 
-import pyproj
+f = 'Almanac2024053.alm'
+
+n, prn = get_alm_data_str(f)
+
+satelity = n[:, 0]<37
+n = n[satelity]
+prn = np.array(prn)[satelity] # S, E, C, G, Q, R
 
 y, m, d = 2024, 2, 29
 
@@ -540,7 +539,7 @@ odbiornik_lam = 21
 odbiornik_h = 100
 
 # filter n by only GPS satelites
-gps_satelites = [sat for i, sat in enumerate(n) if prn[i][0] == 'G']
+gps_satelites = n
 # filter only healthy satelites
 gps_satelites = [sat for sat in gps_satelites if sat[1] == 0]
 print(len(gps_satelites))
