@@ -349,89 +349,52 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     # print(f"Week: {week}, Second of week: {sec_of_week}")
 # 1. Czas jaki upłynął od epoki wyznaczenia almanachu (należy uwzględnić również tydzień GPS):
     # check if nav is a single row
-    if nav.ndim == 1:
-        actual_sec = week * 7 * 86400 + sec_of_week
-        gps_week = nav[12]
-        toa = nav[7]
-        actual_nav = gps_week * 7 * 86400 + toa
-        tk = actual_sec - actual_nav
-    else:
-        actual_sec = week * 7 * 86400 + sec_of_week
-        gps_week = nav[0, 12]
-        toa = nav[0, 7]
-        actual_nav = gps_week * 7 * 86400 + toa
-        tk = actual_sec - actual_nav
+    actual_sec = week * 7 * 86400 + sec_of_week
+    gps_week = nav[12]
+    toa = nav[7]
+    actual_nav = gps_week * 7 * 86400 + toa
+    tk = actual_sec - actual_nav
     # print(f"Time from almanach: {tk}")
 # 2. Obliczenie dużej półosi orbity:
-    if nav.ndim == 1:
-        a = (nav[3])**2
-    else:
-        a = (nav[:,3])**2
+    a = (nav[3])**2
     # print(f"Major axis: {a}")
 # 3. Wyznaczenie średniej prędkości kątowej n, znanej jako ruch średni (ang. mean motion) na podstawie
 # III prawa Kepplera:
     n = np.sqrt(c1/a**3)
     # print(f"Mean motion: {n}")
 # 4. Poprawiona anomalia średnia na epokę tk:
-    if nav.ndim == 1:
-        Mk = np.radians(nav[6]) + n*tk
-    else:
-        Mk = np.radians(nav[:,6]) + n*tk
+    Mk = np.radians(nav[6]) + n*tk
         # convert to radians
     # print(f"Mean anomaly: {Mk}")
 # 5. Wyznaczenie anomalii mimośrodowej (Równanie Kepplera):
     E = Mk
     error = 1
-    if nav.ndim == 1:
-        while error > 10**-12:
-            E_new = Mk + nav[2]*np.sin(E)
-            error = np.abs(E - E_new)
-            E = E_new
-    else:
-        while error > 10**-12:
-            E_new = Mk + nav[:,2]*np.sin(E)
-            error = max(np.abs(E - E_new))
-            E = E_new
+    while error > 10**-12:
+        E_new = Mk + nav[2]*np.sin(E)
+        error = np.abs(E - E_new)
+        E = E_new
     # print(f"Eccentric anomaly: {E}")
 # 6. Wyznaczenie anomalii prawdziwej:
-    if nav.ndim == 1:
-        v = np.arctan(np.sqrt(1 - nav[2]**2)*np.sin(E)/(np.cos(E) - nav[2]))
-    else:
-        v = np.arctan(np.sqrt(1 - nav[:,2]**2)*np.sin(E)/(np.cos(E) - nav[:,2]))
+    v = np.arctan2(np.sqrt(1 - nav[2]**2)*np.sin(E),(np.cos(E) - nav[2]))
     # print(f"True anomaly: {v}")
 # 7. Wyznaczenie argumentu szerokości:
-    if nav.ndim == 1:
-        phi = v + np.radians(nav[5])
-    else:
-        phi = v + np.radians(nav[:,5])
+    phi = v + np.radians(nav[5])
     # print(f"Argument of latitude: {phi}")
 # 8. Wyznaczenie promienia orbity:
-    if nav.ndim == 1:
-        r = a*(1 - nav[2]*np.cos(E))
-    else:
-        r = a*(1 - nav[:,2]*np.cos(E))
+    r = a*(1 - nav[2]*np.cos(E))
     # print(f"Orbit radius: {r}")
 # 9. Wyznaczenie pozycji satelity w układzie orbity:
     x = r*np.cos(phi)
     y = r*np.sin(phi)
     # print(f"Orbit position: {x}, {y}")
 # 10. Poprawiona długość węzła wstępującego:
-    if nav.ndim == 1:
-        omega_k = np.radians(nav[4]) + (np.radians(nav[9]/1000) - c2)*tk - c2*nav[7]
-    else:
-        omega_k = np.radians(nav[:,4]) + (np.radians(nav[:,9]/1000) - c2)*tk - c2*nav[:,7]
+    omega_k = np.radians(nav[4]) + (np.radians(nav[9]/1000) - c2)*tk - c2*nav[7]
     # print(f"Corrected longitude of ascending node: {omega_k}")
 # 11. Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
-    if nav.ndim == 1:
-        i = np.radians(54 + nav[8])
-        X = x*np.cos(omega_k) - y*np.cos(i)*np.sin(omega_k)
-        Y = x*np.sin(omega_k) + y*np.cos(i)*np.cos(omega_k)
-        Z = y*np.sin(i)
-    else:
-        i = np.radians(54 + nav[:,8])
-        X = x*np.cos(omega_k) - y*np.cos(i)*np.sin(omega_k)
-        Y = x*np.sin(omega_k) + y*np.cos(i)*np.cos(omega_k)
-        Z = y*np.sin(i)
+    i = np.radians(54 + nav[8])
+    X = x*np.cos(omega_k) - y*np.cos(i)*np.sin(omega_k)
+    Y = x*np.sin(omega_k) + y*np.cos(i)*np.cos(omega_k)
+    Z = y*np.sin(i)
     # print(f"Satellite position: {X}, {Y}, {Z}")
     return X, Y, Z
 
@@ -449,9 +412,9 @@ def Rneu(phi, lamb):
     R : numpy array
         rotation matrix.
     '''
-    R = np.array([[-np.sin(phi)*np.cos(lamb), -np.sin(lamb), -np.cos(phi)*np.cos(lamb)],
-                    [-np.sin(phi)*np.sin(lamb), np.cos(lamb), -np.cos(phi)*np.sin(lamb)],
-                    [np.cos(phi), 0, -np.sin(phi)]])
+    R = np.array([[-np.sin(phi)*np.cos(lamb), -np.sin(lamb), np.cos(phi)*np.cos(lamb)],
+                    [-np.sin(phi)*np.sin(lamb), np.cos(lamb), np.cos(phi)*np.sin(lamb)],
+                    [np.cos(phi), 0, np.sin(phi)]])
     return R
 
 
@@ -565,7 +528,7 @@ for sat in gps_satelites:
     maska = 10
     if z > maska:
         satelites.append(sat)
-        A.append([-(s_xyz)[0]/s, -(s_xyz)[1]/s, -(s_xyz)[2]/s, 1])
+        A.append([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
     print('\n')
 
 A = np.array(A)
