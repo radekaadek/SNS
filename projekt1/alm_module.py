@@ -588,14 +588,12 @@ ax.set_rlim(0, 90)
 labels = ['90', '', '', '60', '', '', '30', '', '']
 ax.set_yticklabels(labels)
 pts = []
-# add legend
-ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
 for h in range(hours_in_day):
     for minute in range(minutes_in_hour):
         for i, (el, az) in enumerate(elevations[h*minutes_in_hour + minute]):
             if el > mask:
                 # rgb color for the prn
-                pt = ax.scatter(np.radians(az), 90-el, label=prn[i], c=prn_color[prn[i]])
+                pt = ax.scatter(np.radians(az), 90-el, label=prn[i], color=prn_color[prn[i]])
                 pts.append(pt)
         title = f"""Wykres skyplot elewacji i azymutu satelitów GPS dla obserwatora
                 o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h}\n
