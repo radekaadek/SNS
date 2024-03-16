@@ -8,6 +8,7 @@ Created on Wed Feb 15 15:42:24 2023
 import numpy as np
 np.set_printoptions(suppress=True)
 import math
+import matplotlib.pyplot as plt
 
 def julday(y,m,d,h=0):
     '''
@@ -495,46 +496,57 @@ satelity = n[:, 0]<37
 n = n[satelity]
 prn = np.array(prn)[satelity] # S, E, C, G, Q, R
 
-y, m, d = 2024, 2, 29
 
 odbiorkik_fi = 52
 odbiornik_lam = 21
 odbiornik_h = 100
 
 # filter n by only GPS satelites
-gps_satelites = n
 # filter only healthy satelites
-gps_satelites = [sat for sat in gps_satelites if sat[1] == 0]
-print(len(gps_satelites))
+n = [sat for sat in n if sat[1] == 0]
 
-print(f"Wspolrzedne XYZ odbiornika: {blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h)}")
+# print(f"Wspolrzedne XYZ odbiornika: {blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h)}")
 satelites = []
 A = []
-for sat in gps_satelites:
-    s_xyz = np.array(get_satellite_position(sat, y,m,d,12,0,0))
-    r_xyz = np.array(blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h))
-    print(f"Wspolrzedne XYZ satelity: {s_xyz}")
-    xyz_sr = s_xyz - r_xyz
-    print(f"Wektor XYZ satelity - odbiornika: {xyz_sr}")
-    R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
-    neu = R.T.dot(xyz_sr)
-    print(f"Wektor NEU: {neu}")
-    Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
-    if Az < 0:
-        Az = Az + 360
-    s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
-    z = np.rad2deg(np.arcsin(neu[2]/s))
-    print(f"Elewacja: {z}, Azymut: {Az}")
-    maska = 10
-    if z > maska:
-        satelites.append(sat)
-        A.append([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
-    print('\n')
+
+hours_in_day = 24
+minutes_in_hour = 60
+seconds_in_minute = 60
+
+year, m, d = 2024, 2, 29
+xyz_positions = []
+# every 10 minutes
+for hour in range(hours_in_day):
+    for minute in range(minutes_in_hour):
+        xyz_to_append = []
+        for sat in n:
+            s_xyz = np.array(get_satellite_position(sat, year,m,d,hour,minute,0))
+            xyz_to_append.append(s_xyz)
+            r_xyz = np.array(blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h))
+            # print(f"Wspolrzedne XYZ satelity: {s_xyz}")
+            xyz_sr = s_xyz - r_xyz
+            # print(f"Wektor XYZ satelity - odbiornika: {xyz_sr}")
+            R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
+            neu = R.T.dot(xyz_sr)
+            # print(f"Wektor NEU: {neu}")
+            Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
+            if Az < 0:
+                Az = Az + 360
+            s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
+            z = np.rad2deg(np.arcsin(neu[2]/s))
+            # print(f"Elewacja: {z}, Azymut: {Az}")
+            maska = 10
+            if z > maska:
+                satelites.append(sat)
+                A.append([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
+            # print('\n')
+        xyz_positions.append(np.array(xyz_to_append))
+xyz_positions = np.array(xyz_positions)
 
 A = np.array(A)
-print(f"Macierz A:\n {A}\n")
+# print(f"Macierz A:\n {A}\n")
 Q = np.linalg.inv(A.T.dot(A))
-print(f"Macierz Q:\n {Q}\n")
+# print(f"Macierz Q:\n {Q}\n")
 
 TDOP = np.sqrt(Q[3,3])
 PDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2])
@@ -542,15 +554,97 @@ GDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2] + Q[3,3])
 
 R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
 Qneu = R.T.dot(Q[:3,:3].dot(R))
-print(f"Macierz Qneu:\n {Qneu}\n")
+# print(f"Macierz Qneu:\n {Qneu}\n")
 HDOP = np.sqrt(Qneu[0,0] + Qneu[1,1])
 VDOP = np.sqrt(Qneu[2,2])
 PDOPneu = np.sqrt(Qneu[0,0] + Qneu[1,1] + Qneu[2,2])
 
-print("Współczynniki DOP")
-print(f"GDOP: {GDOP}")
-print(f"PDOP: {PDOP}")
-print(f"TDOP: {TDOP}")
-print(f"HDOP: {HDOP}")
-print(f"VDOP: {VDOP}")
+# print("Współczynniki DOP")
+# print(f"GDOP: {GDOP}")
+# print(f"PDOP: {PDOP}")
+# print(f"TDOP: {TDOP}")
+# print(f"HDOP: {HDOP}")
+# print(f"VDOP: {VDOP}")
+
+# # Transformacja do układu niebieskiego:
+#
+# # kąt, o który będziemy chcieli obrócić współrzędne satelity wokół osi z, gdzie omge to prędkość kątowa obrotu Ziemi:
+# alfa = -omge*t
+#
+# # elementarna macierz obrotu wokół osi Z
+# Rz = np.array([[np.cos(alfa), np.sin(alfa),0],
+#                [-np.sin(alfa),np.cos(alfa),0],
+#                [0,0,1]])
+# # obrót do układu niebieskiego, gdzie xs to współrzędne w układzie ziemskim (wynik algorytmu obliczenia współrzędnych satelity), a xsc to współrzędne w układzie niebieskim (literka c od angielskiego celestial)
+# xsc = Rz@xs
+#
+# # Oblcizenia te należy wykonać dla całego zakresu czasu obliczeń (np. dla całej doby), współrzędne w układzie niebieskim zebrać do jednej zmiennej, a następnie, chcąc narysować wykres 3D, zamienić w kodzie na wykres 3D współrzędne x,y,z w układzie ziemskim, na x,y,z w układzie niebieskim 
+#
+#
+# # draw the earth, the satelite and the reciever
+# import matplotlib.pyplot as plt
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# a = 6378137
+# b = 6356752.3142
+# phi = np.linspace(0, 2 * np.pi, 100)
+# theta = np.linspace(0, np.pi, 100)
+# phi, theta = np.meshgrid(phi, theta)
+# x = a * np.sin(theta) * np.cos(phi)
+# y = a * np.sin(theta) * np.sin(phi)
+# z = b * np.cos(theta)
+
+seconds_in_day = hours_in_day*minutes_in_hour*seconds_in_minute
+
+t = seconds_in_day/len(xyz_positions)
+
+xscs = []
+for i, single_date_positions in enumerate(xyz_positions):
+    xscs_to_append = []
+    for position in single_date_positions:
+        omge = 2*np.pi/(seconds_in_day) # [rad/s]
+        alfa = -omge*t*i
+        Rz = np.array([[np.cos(alfa), np.sin(alfa),0],
+               [-np.sin(alfa),np.cos(alfa),0],
+               [0,0,1]])
+        xsc = Rz.dot(position)
+        xscs_to_append.append(xsc)
+    xscs.append(np.array(xscs_to_append))
+
+# draw the earth, the satelite and the reciever
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+a = 6378137
+b = 6356752.3142
+phi = np.linspace(0, 2 * np.pi, 100)
+theta = np.linspace(0, np.pi, 100)
+phi, theta = np.meshgrid(phi, theta)
+x = a * np.sin(theta) * np.cos(phi)
+year = a * np.sin(theta) * np.sin(phi)
+z = b * np.cos(theta)
+ax.plot_surface(x, year, z, color='b', alpha=0.1)
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+year = 2024 # this has to be here
+# draw satelites
+# dots = ax.plot([], [], [], c='r')
+dots = ax.scatter([], [], [], c='r')
+idx = 0
+for h in range(hours_in_day):
+    for minute in range(minutes_in_hour):
+        # get only the first satelite
+        idx += 1
+        positions = xscs[idx]
+        dots.remove()
+        dots = ax.scatter(positions[:,0], positions[:,1], positions[:,2], c='r')
+        # now draw only the path of the first satelite with a line from [0:idx]
+        # positions = []
+        # for i in range(idx):
+        #     positions.append(xscs[i][0][:3])
+        # positions = np.array(positions)
+        # dots = ax.plot(positions[:,0], positions[:,1], positions[:,2], c='r')
+        # set title
+        ax.set_title(f"Satelite positions at {year}-{m}-{d}\n{h:02d}:{minute:02d} UT1")
+        plt.pause(0.002)
 
