@@ -9,6 +9,7 @@ import numpy as np
 np.set_printoptions(suppress=True)
 import math
 import matplotlib.pyplot as plt
+import random
 
 def julday(y,m,d,h=0):
     '''
@@ -514,11 +515,14 @@ minutes_in_hour = 60
 seconds_in_minute = 60
 
 year, m, d = 2024, 2, 29
+mask = 10
 xyz_positions = []
+elevations = []
 # every 10 minutes
 for hour in range(hours_in_day):
     for minute in range(minutes_in_hour):
         xyz_to_append = []
+        elevations_to_append = []
         for sat in n:
             s_xyz = np.array(get_satellite_position(sat, year,m,d,hour,minute,0))
             xyz_to_append.append(s_xyz)
@@ -535,13 +539,15 @@ for hour in range(hours_in_day):
             s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
             z = np.rad2deg(np.arcsin(neu[2]/s))
             # print(f"Elewacja: {z}, Azymut: {Az}")
-            maska = 10
-            if z > maska:
+            elevations_to_append.append(np.array([z, Az]))
+            if z > mask:
                 satelites.append(sat)
                 A.append([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
             # print('\n')
         xyz_positions.append(np.array(xyz_to_append))
+        elevations.append(np.array(elevations_to_append))
 xyz_positions = np.array(xyz_positions)
+elevations = np.array(elevations)
 
 A = np.array(A)
 # print(f"Macierz A:\n {A}\n")
@@ -559,12 +565,52 @@ HDOP = np.sqrt(Qneu[0,0] + Qneu[1,1])
 VDOP = np.sqrt(Qneu[2,2])
 PDOPneu = np.sqrt(Qneu[0,0] + Qneu[1,1] + Qneu[2,2])
 
-# print("Współczynniki DOP")
-# print(f"GDOP: {GDOP}")
-# print(f"PDOP: {PDOP}")
-# print(f"TDOP: {TDOP}")
-# print(f"HDOP: {HDOP}")
-# print(f"VDOP: {VDOP}")
+print("Współczynniki DOP")
+print(f"GDOP: {GDOP}")
+print(f"PDOP: {PDOP}")
+print(f"TDOP: {TDOP}")
+print(f"HDOP: {HDOP}")
+print(f"VDOP: {VDOP}")
+
+# narysuj wykres skyplot elewacji i azymutu dla każdego satelity w pierwszym momencie
+
+# generate random colors for each satelite
+prn_set = set(prn)
+prn_color = {p: np.random.rand(3,) for p in prn_set}
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='polar')
+ax.set_title(f"Wykres skyplot elewacji i azymutu satelitów GPS dla obserwatora o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h} \
+            \n {year}-{m}-{d} 00:00 UT1")
+ax.set_theta_direction(-1)
+ax.set_theta_zero_location('N')
+ax.set_rlim(0, 90)
+labels = ['90', '', '', '60', '', '', '30', '', '']
+ax.set_yticklabels(labels)
+pts = []
+# add legend
+ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
+for h in range(hours_in_day):
+    for minute in range(minutes_in_hour):
+        for i, (el, az) in enumerate(elevations[h*minutes_in_hour + minute]):
+            if el > mask:
+                # rgb color for the prn
+                pt = ax.scatter(np.radians(az), 90-el, label=prn[i], c=prn_color[prn[i]])
+                pts.append(pt)
+        title = f"""Wykres skyplot elewacji i azymutu satelitów GPS dla obserwatora
+                o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h}\n
+                Podczas: {year}-{m}-{d} {h:02d}:{minute:02d} czasu UT1"""
+        ax.set_title(title)
+        ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
+        plt.pause(0.01)
+        # clear the plot
+        for pt in pts:
+            pt.remove()
+        # clear the list
+        pts = []
+plt.show()
+
+
 
 # # Transformacja do układu niebieskiego:
 #
@@ -612,6 +658,7 @@ for i, single_date_positions in enumerate(xyz_positions):
     xscs.append(np.array(xscs_to_append))
 
 # draw the earth, the satelite and the reciever
+# clear the plot
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 a = 6378137
