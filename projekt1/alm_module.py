@@ -549,6 +549,7 @@ for hour in range(hours_in_day):
 xyz_positions = np.array(xyz_positions)
 elevations = np.array(elevations)
 
+
 A = np.array(A)
 # print(f"Macierz A:\n {A}\n")
 Q = np.linalg.inv(A.T.dot(A))
@@ -572,8 +573,23 @@ print(f"TDOP: {TDOP}")
 print(f"HDOP: {HDOP}")
 print(f"VDOP: {VDOP}")
 
-# narysuj wykres skyplot elewacji i azymutu dla każdego satelity w pierwszym momencie
+# count how many satelites were visible for each minute
+visible_satelites = [np.sum(elevations[i][:,0] > mask) for i in range(hours_in_day*minutes_in_hour)]
+# draw a plot of visible satelites
+fig, ax = plt.subplots()
+title = f"""
+Liczba widocznych satelitów GPS dla obserwatora o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h}
+Dla dnia: {year}-{m}-{d}
+"""
+ax.set_title(title)
+ax.set_xlabel('Czas w minutach od 00:00')
+ax.set_ylabel('Liczba widocznych satelitów')
+ax.plot(range(hours_in_day*minutes_in_hour), visible_satelites)
+plt.show()
 
+
+
+# narysuj wykres skyplot elewacji i azymutu dla każdego satelity w pierwszym momencie
 # generate random colors for each satelite
 prn_set = set(prn)
 prn_color = {p: np.random.rand(3,) for p in prn_set}
