@@ -9,6 +9,7 @@ import numpy as np
 np.set_printoptions(suppress=True)
 import matplotlib.pyplot as plt
 from numba import njit
+from numba import jit
 
 @njit
 def julday(y,m,d,h=0):
@@ -514,6 +515,17 @@ def calculate_s_z_Az(s_xyz, r_xyz):
     z = np.rad2deg(np.arcsin(neu[2]/s))
     return s, z, Az
 
+@jit
+def calcualte_dops(Q): # Q cuz numba doesnt support np.linalg.inv
+    TDOP = np.sqrt(Q[3,3])
+    PDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2])
+    GDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2] + Q[3,3])
+    Qneu = R.T.dot(Q[:3,:3].dot(R))
+    HDOP = np.sqrt(Qneu[0,0] + Qneu[1,1])
+    VDOP = np.sqrt(Qneu[2,2])
+    PDOPneu = np.sqrt(Qneu[0,0] + Qneu[1,1] + Qneu[2,2])
+    return TDOP, PDOP, GDOP, HDOP, VDOP, PDOPneu
+
 # filter n by only GPS satelites
 # filter only healthy satelites
 n = [sat for sat in n if sat[1] == 0]
@@ -535,6 +547,7 @@ for hour in range(hours_in_day):
     for minute in range(minutes_in_hour):
         xyz_to_append = []
         elevations_to_append = []
+        as_to_append = []
         for sat in n:
             s_xyz = np.array(get_satellite_position(sat, year,m,d,hour,minute,0))
             xyz_to_append.append(s_xyz)
@@ -544,7 +557,9 @@ for hour in range(hours_in_day):
             elevations_to_append.append(np.array([z, Az]))
             if z > mask:
                 satelites.append(sat)
-                A.append([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
+                curr_a = np.array([-(s_xyz[0]-r_xyz[0])/s, -(s_xyz[1]-r_xyz[1])/s, -(s_xyz[2]-r_xyz[2])/s, 1])
+                as_to_append.append(curr_a)
+        A.append(np.array(as_to_append))
             # print('\n')
         xyz_positions.append(np.array(xyz_to_append))
         elevations.append(np.array(elevations_to_append))
@@ -552,21 +567,27 @@ xyz_positions = np.array(xyz_positions)
 elevations = np.array(elevations)
 
 
-A = np.array(A)
+
+DOPS = []
+for a in A:
+    try:
+        q = np.linalg.inv(a.T.dot(a))
+    except Exception as e:
+        print(e)
+        continue
+    dops_to_append = calcualte_dops(q)
+    dops_to_append = np.array(dops_to_append)
+    DOPS.append(dops_to_append)
+DOPS = np.array(DOPS)
+
+# unpack the A matrix to a onediemnsional array
+A = np.array(
+    [a for a in A for a in a]
+)
 # print(f"Macierz A:\n {A}\n")
 Q = np.linalg.inv(A.T.dot(A))
 # print(f"Macierz Q:\n {Q}\n")
-
-TDOP = np.sqrt(Q[3,3])
-PDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2])
-GDOP = np.sqrt(Q[0,0] + Q[1,1] + Q[2,2] + Q[3,3])
-
-R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
-Qneu = R.T.dot(Q[:3,:3].dot(R))
-# print(f"Macierz Qneu:\n {Qneu}\n")
-HDOP = np.sqrt(Qneu[0,0] + Qneu[1,1])
-VDOP = np.sqrt(Qneu[2,2])
-PDOPneu = np.sqrt(Qneu[0,0] + Qneu[1,1] + Qneu[2,2])
+TDOP, PDOP, GDOP, HDOP, VDOP, PDOPneu = calcualte_dops(Q)
 
 print("Współczynniki DOP")
 print(f"GDOP: {GDOP}")
@@ -574,6 +595,19 @@ print(f"PDOP: {PDOP}")
 print(f"TDOP: {TDOP}")
 print(f"HDOP: {HDOP}")
 print(f"VDOP: {VDOP}")
+
+# draw a plot of DOPS
+fig, ax = plt.subplots()
+title = f"""
+Współczynniki DOP dla obserwatora o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h}
+Dla dnia: {year}-{m}-{d}
+"""
+ax.set_title(title)
+ax.set_xlabel('Czas w minutach od 00:00')
+ax.set_ylabel('Wartość DOP')
+ax.plot(range(len(xyz_positions)), DOPS)
+ax.legend(['TDOP', 'PDOP', 'GDOP', 'HDOP', 'VDOP', 'PDOPneu'])
+plt.show()
 
 # count how many satelites were visible for each minute
 visible_satelites = [np.sum(elevations[i][:,0] > mask) for i in range(hours_in_day*minutes_in_hour)]
