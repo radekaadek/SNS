@@ -7,10 +7,10 @@ Created on Wed Feb 15 15:42:24 2023
 
 import numpy as np
 np.set_printoptions(suppress=True)
-import math
 import matplotlib.pyplot as plt
-import random
+from numba import njit
 
+@njit
 def julday(y,m,d,h=0):
     '''
     Simplified Julian Date generator, valid only between
@@ -24,7 +24,7 @@ def julday(y,m,d,h=0):
     # C = np.trunc(365.25*y)
     # D = np.trunc(30.6001 * (m+1))
     # jd = B + C + D + d + 1720994.5
-    jd = math.floor(365.25*(y+4716))+math.floor(30.6001*(m+1))+d+h/24-1537.5;
+    jd = np.floor(365.25*(y+4716))+np.floor(30.6001*(m+1))+d+h/24-1537.5
     return jd
 
 # compare 
@@ -73,7 +73,7 @@ def read_yuma(almanac_file):
         
         return (all_sat)
 
-
+@njit
 def blh2xyz(fi, lam, h):
     '''
     Parameters
@@ -337,7 +337,7 @@ def get_alm_data_str(alm_file):
 # • Po ukończeniu obliczeń dla danej epoki, należy powtórzyć schemat dla kolejnej epoki, aż
 # do ostatniej epoki.
 
-
+@njit
 def get_gps_time(y,m,d,h=0, mnt=0,s=0):
     days = julday(y,m,d) - julday(1980,1,6)
     week = days//7
@@ -345,7 +345,7 @@ def get_gps_time(y,m,d,h=0, mnt=0,s=0):
     sec_of_week = day*86400 + h*3600 + mnt*60 + s
     return week, sec_of_week
 
-
+@njit
 def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     week, sec_of_week = get_gps_time(y,m,d,h,mnt,s)
     # print(f"Week: {week}, Second of week: {sec_of_week}")
@@ -399,7 +399,6 @@ def get_satellite_position(nav, y, m, d, h=0, mnt=0, s=0):
     Z = y*np.sin(i)
     # print(f"Satellite position: {X}, {Y}, {Z}")
     return X, Y, Z
-
 
 def Rneu(phi, lamb):
     '''
@@ -485,6 +484,7 @@ def Rneu(phi, lamb):
 #         s.remove()
 #
 
+
 # constans
 c1 = 3.986005* (10**14)
 c2 = 7.2921151467* (10**-5)
@@ -501,6 +501,18 @@ prn = np.array(prn)[satelity] # S, E, C, G, Q, R
 odbiorkik_fi = 52
 odbiornik_lam = 21
 odbiornik_h = 100
+
+R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
+@njit(parallel=True)
+def calculate_s_z_Az(s_xyz, r_xyz):
+    xyz_sr = s_xyz - r_xyz
+    neu = R.T@xyz_sr
+    Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
+    if Az < 0:
+        Az = Az + 360
+    s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
+    z = np.rad2deg(np.arcsin(neu[2]/s))
+    return s, z, Az
 
 # filter n by only GPS satelites
 # filter only healthy satelites
@@ -527,17 +539,7 @@ for hour in range(hours_in_day):
             s_xyz = np.array(get_satellite_position(sat, year,m,d,hour,minute,0))
             xyz_to_append.append(s_xyz)
             r_xyz = np.array(blh2xyz(np.radians(odbiorkik_fi), np.radians(odbiornik_lam), odbiornik_h))
-            # print(f"Wspolrzedne XYZ satelity: {s_xyz}")
-            xyz_sr = s_xyz - r_xyz
-            # print(f"Wektor XYZ satelity - odbiornika: {xyz_sr}")
-            R = Rneu(np.radians(odbiorkik_fi), np.radians(odbiornik_lam))
-            neu = R.T.dot(xyz_sr)
-            # print(f"Wektor NEU: {neu}")
-            Az = np.rad2deg(np.arctan2(neu[1],neu[0]))
-            if Az < 0:
-                Az = Az + 360
-            s = np.sqrt(neu[0]**2 + neu[1]**2 + neu[2]**2)
-            z = np.rad2deg(np.arcsin(neu[2]/s))
+            s, z, Az = calculate_s_z_Az(s_xyz, r_xyz)
             # print(f"Elewacja: {z}, Azymut: {Az}")
             elevations_to_append.append(np.array([z, Az]))
             if z > mask:
@@ -613,46 +615,15 @@ for h in range(hours_in_day):
                 pts.append(pt)
         title = f"""Wykres skyplot elewacji i azymutu satelitów GPS dla obserwatora
                 o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h}\n
-                Podczas: {year}-{m}-{d} {h:02d}:{minute:02d} czasu UT1"""
+                Podczas: {year}-{m}-{d} {h:02d}:{minute:02d} UT1"""
         ax.set_title(title)
         ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
-        plt.pause(0.01)
+        plt.pause(0.001)
         # clear the plot
         for pt in pts:
             pt.remove()
         # clear the list
         pts = []
-plt.show()
-
-
-
-# # Transformacja do układu niebieskiego:
-#
-# # kąt, o który będziemy chcieli obrócić współrzędne satelity wokół osi z, gdzie omge to prędkość kątowa obrotu Ziemi:
-# alfa = -omge*t
-#
-# # elementarna macierz obrotu wokół osi Z
-# Rz = np.array([[np.cos(alfa), np.sin(alfa),0],
-#                [-np.sin(alfa),np.cos(alfa),0],
-#                [0,0,1]])
-# # obrót do układu niebieskiego, gdzie xs to współrzędne w układzie ziemskim (wynik algorytmu obliczenia współrzędnych satelity), a xsc to współrzędne w układzie niebieskim (literka c od angielskiego celestial)
-# xsc = Rz@xs
-#
-# # Oblcizenia te należy wykonać dla całego zakresu czasu obliczeń (np. dla całej doby), współrzędne w układzie niebieskim zebrać do jednej zmiennej, a następnie, chcąc narysować wykres 3D, zamienić w kodzie na wykres 3D współrzędne x,y,z w układzie ziemskim, na x,y,z w układzie niebieskim 
-#
-#
-# # draw the earth, the satelite and the reciever
-# import matplotlib.pyplot as plt
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# a = 6378137
-# b = 6356752.3142
-# phi = np.linspace(0, 2 * np.pi, 100)
-# theta = np.linspace(0, np.pi, 100)
-# phi, theta = np.meshgrid(phi, theta)
-# x = a * np.sin(theta) * np.cos(phi)
-# y = a * np.sin(theta) * np.sin(phi)
-# z = b * np.cos(theta)
 
 seconds_in_day = hours_in_day*minutes_in_hour*seconds_in_minute
 
