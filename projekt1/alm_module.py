@@ -405,14 +405,14 @@ Współczynniki DOP dla obserwatora o współrzędnych BLH: {odbiorkik_fi}, {odb
 Dla dnia: {year}-{m}-{d}
 """
 ax.set_title(title)
-ax.set_xlabel('Czas w minutach od 00:00')
+ax.set_xlabel('Czas w minutach od północy')
 ax.set_ylabel('Wartość DOP')
 ax.plot(range(len(xyz_positions)), DOPS)
 ax.legend(['TDOP', 'PDOP', 'GDOP', 'HDOP', 'VDOP', 'PDOPneu'])
 plt.show()
 
 # count how many satelites were visible for each minute
-visible_satelites = [np.sum(elevations[i][:,0] > mask) for i in range(hours_in_day*minutes_in_hour)]
+visible_satelites = [np.sum(el[:,0] > mask) for el in elevations]
 # draw a plot of visible satelites
 fig, ax = plt.subplots()
 title = f"""
@@ -420,9 +420,9 @@ Liczba widocznych satelitów GPS dla obserwatora o współrzędnych BLH: {odbior
 Dla dnia: {year}-{m}-{d}
 """
 ax.set_title(title)
-ax.set_xlabel('Czas w minutach od 00:00')
+ax.set_xlabel('Czas w minutach od północy')
 ax.set_ylabel('Liczba widocznych satelitów')
-ax.plot(range(hours_in_day*minutes_in_hour), visible_satelites)
+ax.plot(range(len(visible_satelites)), visible_satelites)
 plt.show()
 
 
@@ -513,6 +513,6 @@ for h in range(hours_in_day):
         # positions = np.array(positions)
         # dots = ax.plot(positions[:,0], positions[:,1], positions[:,2], c='r')
         # set title
-        ax.set_title(f"Satelite positions at {year}-{m}-{d}\n{h:02d}:{minute:02d} UT1")
+        ax.set_title(f"GPS satelite positions at {year}-{m}-{d}\n{h:02d}:{minute:02d} UT1")
         plt.pause(0.002)
 
