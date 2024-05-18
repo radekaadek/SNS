@@ -368,7 +368,7 @@ for hour in range(hours_in_day):
 xyz_positions = np.array(xyz_positions)
 elevations = np.array(elevations)
 
-
+print(A)
 
 DOPS = []
 for a in A:
@@ -405,7 +405,7 @@ Współczynniki DOP dla obserwatora o współrzędnych BLH: {odbiorkik_fi}, {odb
 Dla dnia: {year}-{m}-{d}
 """
 ax.set_title(title)
-ax.set_xlabel('Czas w minutach od północy')
+ax.set_xlabel('Czas GP1 w minutach od północy')
 ax.set_ylabel('Wartość DOP')
 ax.plot(range(len(xyz_positions)), DOPS)
 ax.legend(['TDOP', 'PDOP', 'GDOP', 'HDOP', 'VDOP', 'PDOPneu'])
@@ -420,7 +420,7 @@ Liczba widocznych satelitów GPS dla obserwatora o współrzędnych BLH: {odbior
 Dla dnia: {year}-{m}-{d}
 """
 ax.set_title(title)
-ax.set_xlabel('Czas w minutach od północy')
+ax.set_xlabel('Czas GP1 w minutach od północy')
 ax.set_ylabel('Liczba widocznych satelitów')
 ax.plot(range(len(visible_satelites)), visible_satelites)
 plt.show()
@@ -435,7 +435,7 @@ prn_color = {p: np.random.rand(3,) for p in prn_set}
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='polar')
 ax.set_title(f"Wykres skyplot elewacji i azymutu satelitów GPS dla obserwatora o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h} \
-            \n {year}-{m}-{d} 00:00 UT1")
+            \n {year}-{m}-{d} 00:00 GPS1")
 ax.set_theta_direction(-1)
 ax.set_theta_zero_location('N')
 ax.set_rlim(0, 90)
@@ -451,7 +451,7 @@ for h in range(hours_in_day):
                 pts.append(pt)
         title = f"""Wykres skyplot elewacji i azymutu satelitów GPS dla obserwatora
                 o współrzędnych BLH: {odbiorkik_fi}, {odbiornik_lam}, {odbiornik_h}\n
-                Podczas: {year}-{m}-{d} {h:02d}:{minute:02d} UT1"""
+                Podczas: {year}-{m}-{d} {h:02d}:{minute:02d} GPS1"""
         ax.set_title(title)
         ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
         plt.pause(0.001)
@@ -513,6 +513,6 @@ for h in range(hours_in_day):
         # positions = np.array(positions)
         # dots = ax.plot(positions[:,0], positions[:,1], positions[:,2], c='r')
         # set title
-        ax.set_title(f"GPS satelite positions at {year}-{m}-{d}\n{h:02d}:{minute:02d} UT1")
+        ax.set_title(f"GPS satelite positions at {year}-{m}-{d}\n{h:02d}:{minute:02d} GPS1")
         plt.pause(0.002)
 

@@ -1,8 +1,10 @@
 import time
 import numpy as np
+from numba import jit
 from datetime import date
 import math
 
+@jit
 def julday(y,m,d,h=0):
     '''
     Simplified Julian Date generator, valid only between
@@ -14,6 +16,8 @@ def julday(y,m,d,h=0):
     jd = np.floor(365.25*(y+4716))+np.floor(30.6001*(m+1))+d+h/24-1537.5
     return jd
 
+a = julday(2020, 1, 1)
+
 def math_julday(y,m,d,h=0):
     '''
     Simplified Julian Date generator, valid only between
@@ -24,6 +28,8 @@ def math_julday(y,m,d,h=0):
         m = m + 12
     jd = math.floor(365.25*(y+4716))+math.floor(30.6001*(m+1))+d+h/24-1537.5
     return jd
+
+b = math_julday(2020, 1, 1)
 
 def calculate_difference_julday(y1, m1, d1, y2, m2, d2):
     julian1 = julday(y1, m1, d1)
@@ -74,16 +80,9 @@ for year1, month1, day1 in dates:
         diffs3.append(difference_math)
 math_time = time.time() - start_time
 
-# Measure time when using a numpy array
-start_time = time.time()
-dates = np.array(dates)
-julian_dates = np.array([julday(year, month, day) for year, month, day in dates])
-diffs4 = np.abs(julian_dates[:, None] - julian_dates)
-array_time = time.time() - start_time
 
-print(f"diffs are equal: {diffs1==diffs2==diffs3==diffs4}")
+print(f"diffs are equal: {diffs1==diffs2==diffs3}")
 print("Time taken for julday function:", julday_time)
 print("Time taken for standard library function:", standard_time)
 print("Time taken for math function:", math_time)
-print("Time taken for numpy array:", array_time)
 
