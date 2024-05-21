@@ -63,6 +63,7 @@ zdefiniowanie współrzędnych przybliżonych odbiornika - mogą to być współ
 pliku obserwacyjnego, skopiowane "z palca" lub pobierane automatycznie z treci nagłówka pliku Rinex
 """
 xr0 = [3660000.,  1400000.,  5000000.]
+xr0_start = [3664880.9100, 1409190.3850, 5009618.2850]
 
 """
 Wprowadzenie ustawień, takich jak maska obserwacji, czy typ poprawki troposferycznej
@@ -86,7 +87,7 @@ omega = 7.2921151467*10**-5
 
 tau = 0.07
 dtr = 0
-c = 299792458
+C = 299792458
 observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
 mask_rad = np.deg2rad(el_mask)
 
@@ -100,73 +101,49 @@ for sat in observed_satelites:
     observed_data.append(nav_sat)
 
 observed_data = np.array(observed_data)
+observed_positions = []
 
 sats = iobs[idx_t, 0]
 Pobs = obs[idx_t, 0]
 mask = 10
-iters = 1
+iters = 5
 for time in range(tow, tow_end+1, 30):
-    if time == 213300:
-        print(f"Pobs: {Pobs}")
-    # print(f"Sats: {sats}")
     dtr = 0
-    # tau = 0.07
     taus = np.array([0.07]*len(sats))
-    rho = np.zeros((len(sats),1)) #?
+    rho = np.zeros((len(sats),1))
     xyz = np.array(xr0)
-    print(f"{xyz=}")
     el = np.array([np.pi/2]*len(sats))
     for j in range(iters):
         A = []
         free_words = []
+        trop = 0
         for i, sat in enumerate(sats):
-            ts = t - taus[i] + dtr
-            if sat == 25 and time == 213300:
-                print(f"ts: {ts}")
+            ts = time - taus[i] + dtr
             xyzdts = sat_position(ts, observed_data[i])
             xs = xyzdts[0:3]
-            if sat == 25 and time == 213300:
-              print(f"xs: {xs}")
             dts = xyzdts[3]
-            if sat == 25 and time == 213300:
-                print(f"{dts=}")
             alpha = tau * omega
-            m1 = np.array([[np.cos(alpha), np.sin(alpha), 0],
+            rot_mat = np.array([[np.cos(alpha), np.sin(alpha), 0],
                           [-np.sin(alpha), np.cos(alpha), 0],
                           [0, 0, 1]])
-            if sat == 25 and time == 213300:
-              print(f"m1: {m1}")
-            m2 = xs
-            if sat == 25 and time == 213300:
-              print(f"m2: {m2}")
-            xs_rot = np.dot(m1, m2)
-            if sat == 25 and time == 213300:
-              print(f"xs_rot: {xs_rot}")
+            xs_rot = np.dot(rot_mat, xs)
             p0 = np.sqrt((xs_rot[0] - xyz[0])**2 + (xs_rot[1] - xyz[1])**2 + (xs_rot[2] - xyz[2])**2)
-            if sat == 25 and time == 213300:
-              print(f"p0: {p0}")
             A.append([-(xs_rot[0] - xyz[0])/p0, -(xs_rot[1] - xyz[1])/p0, -(xs_rot[2] - xyz[2])/p0, 1])
-            print(f"{xs_rot=} {xyz=}")
-            print(p0.shape)
             rho[i] = p0
             # convert x,y,z to b,l,h
             b,l,h = hirvonen(xyz[0], xyz[1], xyz[2])
-            if sat == 25 and time == 213300:
-              print(f"b: {np.rad2deg(b)}, l: {np.rad2deg(l)}, h: {h}")
             x_neu = np.dot(Rneu(b, l), xs_rot)
             az = np.rad2deg(np.arctan2(x_neu[1], x_neu[0]))
             az = az if az>0 else az + 360
             el = np.rad2deg(np.arcsin(x_neu[2]/np.linalg.norm(x_neu)))
+            print(f"{az=} {el=}")
             az = np.deg2rad(az)
             el = np.deg2rad(el)
-            # print(f"{az=} {el=}")
             if el>np.deg2rad(mask):
-                if j == 0:
-                    trop = 0
-                else:
+                if j != 0:
                     hort = h - 31.36
-                    print(f"{hort=}")
-                    p = 1013.25 * (1-0.0000226*hort)**5.225
+                    # p = 1013.25 * (1-0.0000226*hort)**5.225
+                    p = 1013.25 * (float(1-0.0000226*hort)**5.225)
                     temp = 291.15 - 0.0065*hort
                     Rh = 0.5 * np.exp(-0.0006396*hort)
                     e = 6.11 * Rh * 100**((7.5*(temp-273.15))/(temp - 35.85))
@@ -179,21 +156,31 @@ for time in range(tow, tow_end+1, 30):
                     md = 1/(np.sin(np.deg2rad(np.sqrt(np.rad2deg(el) ** 2 + 6.25))))
                     mw = 1/(np.sin(np.deg2rad(np.sqrt(np.rad2deg(el) ** 2 + 2.25))))
                     dT = dTd0 * md + dTw0 + mw
-            cdts = c * dts
-            print(f"c*dts: {cdts}")
-            Pcalc = np.float64(rho[i] - cdts + dtr)
-            print(f"{Pcalc=}")
+                    trop = dT
+            cdts = C * dts
+            Pcalc = np.float64((rho[i] - cdts + dtr)[0])
             y = Pobs[i] - Pcalc
             free_words.append(y)
         A = np.array(A)
         free_words = np.array(free_words)
-        print(f"{free_words=}")
+        print(f"{A=}\n np.linalg.inv(np.dot(A.T, A))=\n{np.linalg.inv(np.dot(A.T, A))}")
         x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, free_words.squeeze()))
-        print(f"{x=}")
         xr0[0] += x[0]
         xr0[1] += x[1]
         xr0[2] += x[2]
+        dtr += x[3]/C
         print(f"{xr0=}")
+    observed_positions.append(xr0)
+
+
+observed_positions = np.array(observed_positions)
+import matplotlib.pyplot as plt
+distances = []
+for pos in observed_positions:
+    error = np.sqrt((pos[0] - xr0_start[0])**2 + (pos[1] - xr0_start[1])**2 + (pos[2] - xr0_start[2])**2)
+    distances.append(error)
+plt.plot(distances)
+plt.show()
 
 
 
