@@ -158,90 +158,75 @@ def sat_position(time, nav):
     gtrel2 = gt2 + gtrel
     return np.array([X, Y, Z, gtrel2])
 
-if __name__ == '__main__':
-    Xk, Yk, Zk, dt_s_rel = sat_position(tow, observed_data[0])
-    print(f"Xk: {Xk}, Yk: {Yk}, Zk: {Zk}, dt_s_rel: {dt_s_rel}")
-# def satelite_position(observed_data, tow):
-#     # Obliczenie różnicy czasu między czasem obserwacji a czasem obserwacji satelity
-# # czas jaki upłynął od epoki wyznaczenia efemerydy
-#     tk = tow - observed_data[17]
-#     print(f"tk: {tk}")
-#
-# # Obliczenie dużej półosi orbity
-#     a = observed_data[16]**2
-#     print(f"a: {a}")
-#
-# # Wyznaczenie średniej prędkości kątowej n, znanej jako ruch średni (ang. mean motion) na podstawie
-# # III prawa Keplera: (a – duża półoś orbity)
-#     n0 = np.sqrt(micro / a**3)
-#     print(f"n0: {n0}")
-#     n = n0 + observed_data[11]
-#     print(f"n: {n}")
-#
-# # Wyznaczenie poprawionego ruchu średniego:
-#     Mk = observed_data[12] + n * tk
-#     print(f"Mk: {Mk}")
-#
-# # Poprawiona anomalia średnia na epokę tk :
-#     Ek = Mk
-#     Ek_old = 0
-#     while np.abs(Ek - Ek_old) > 1e-12:
-#         Ek_old = Ek
-#         Ek = Mk + observed_data[14] * np.sin(Ek)
-#     print(f"Ek: {Ek}")
-#
-#     vk = np.arctan2(np.sqrt(1 - observed_data[14]**2) * np.sin(Ek), np.cos(Ek) - observed_data[14])
-#     print(f"vk: {vk}")
-#
-# # Wyznaczenie argumentu szerokości:
-#     fik = vk + observed_data[23]
-#     print(f"fik: {fik}")
-#
-# # Wyznaczenie poprawek do argumentu szerokości ∆uk , promienia orbity ∆rk i inklinacji orbity ∆ik :
-#     delta_uk = observed_data[13] * np.cos(2*fik) + observed_data[15] * np.sin(2*fik)
-#     print(f"delta_uk: {delta_uk}")
-#     delta_ik = observed_data[18] * np.cos(2*fik) + observed_data[20] * np.sin(2*fik)
-#     print(f"delta_ik: {delta_ik}")
-#     delta_rk = observed_data[22] * np.cos(2*fik) + observed_data[10] * np.sin(2*fik)
-#     print(f"delta_rk: {delta_rk}")
-#
-# # Wyznaczenie poprawionych wartości argumentu szerokości uk , promienia orbity rk i inklinacji orbity ik :
-#     uk = fik + delta_uk
-#     print(f"uk: {uk}")
-#     rk = a * (1 - observed_data[14] * np.cos(Ek)) + delta_rk
-#     print(f"rk: {rk}")
-#     ik = observed_data[21] + delta_ik
-#     print(f"ik: {ik}")
-#
-# # Wyznaczenie pozycji satelity w układzie orbity:
-#     xk = rk * np.cos(uk)
-#     yk = rk * np.sin(uk)
-#
-# # KONTROLA
-#     # print(f"Kontrola: {np.allclose(rk, np.sqrt(xk**2 + yk**2))}")
-#
-# # Poprawiona długość węzła wstępującego:
-#     omk = observed_data[19] + (observed_data[24] - Wec) * tk - Wec * observed_data[17]
-#     print(f"omk: {omk}")
-#
-# # Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
-#     Xk = xk * np.cos(omk) - yk * np.cos(ik) * np.sin(omk)
-#     Yk = xk * np.sin(omk) + yk * np.cos(ik) * np.cos(omk)
-#     Zk = yk * np.sin(ik)
-#     # obliczenie błędu synchronizacji zegara satelity na podstawie wielomianu drugiego stopnia:
-#     delta_ts = observed_data[6] + observed_data[7] * (tow - observed_data[17]) + observed_data[8] * (tow - observed_data[17])**2
-#     # obliczenie poprawki relatywistycznej i dodanie jej do wartości błędu synchronizacji zegara satelity:
-#     c = 299792458.0
-#     dt_rel = -2 * np.sqrt(micro * a) / c**2 * observed_data[14] * np.sin(Ek)
-#     dt_s_rel = delta_ts + dt_rel
-#     return Xk, Yk, Zk, dt_s_rel
+# if __name__ == '__main__':
+#     Xk, Yk, Zk, dt_s_rel = sat_position(tow, observed_data[0])
+#     print(f"Xk: {Xk}, Yk: {Yk}, Zk: {Zk}, dt_s_rel: {dt_s_rel}")
+def satelite_position(observed_data, tow):
+    # Obliczenie różnicy czasu między czasem obserwacji a czasem obserwacji satelity
+# czas jaki upłynął od epoki wyznaczenia efemerydy
+    tk = tow - observed_data[17]
+
+# Obliczenie dużej półosi orbity
+    a = observed_data[16]**2
+
+# Wyznaczenie średniej prędkości kątowej n, znanej jako ruch średni (ang. mean motion) na podstawie
+# III prawa Keplera: (a – duża półoś orbity)
+    n0 = np.sqrt(micro / a**3)
+    n = n0 + observed_data[11]
+
+# Wyznaczenie poprawionego ruchu średniego:
+    Mk = observed_data[12] + n * tk
+
+# Poprawiona anomalia średnia na epokę tk :
+    Ek = Mk
+    Ek_old = 0
+    while np.abs(Ek - Ek_old) > 1e-12:
+        Ek_old = Ek
+        Ek = Mk + observed_data[14] * np.sin(Ek)
+
+    vk = np.arctan2(np.sqrt(1 - observed_data[14]**2) * np.sin(Ek), np.cos(Ek) - observed_data[14])
+
+# Wyznaczenie argumentu szerokości:
+    fik = vk + observed_data[23]
+
+# Wyznaczenie poprawek do argumentu szerokości ∆uk , promienia orbity ∆rk i inklinacji orbity ∆ik :
+    delta_uk = observed_data[13] * np.cos(2*fik) + observed_data[15] * np.sin(2*fik)
+    delta_ik = observed_data[18] * np.cos(2*fik) + observed_data[20] * np.sin(2*fik)
+    delta_rk = observed_data[22] * np.cos(2*fik) + observed_data[10] * np.sin(2*fik)
+
+# Wyznaczenie poprawionych wartości argumentu szerokości uk , promienia orbity rk i inklinacji orbity ik :
+    uk = fik + delta_uk
+    rk = a * (1 - observed_data[14] * np.cos(Ek)) + delta_rk
+    ik = observed_data[21] + delta_ik
+
+# Wyznaczenie pozycji satelity w układzie orbity:
+    xk = rk * np.cos(uk)
+    yk = rk * np.sin(uk)
+
+# KONTROLA
+    # print(f"Kontrola: {np.allclose(rk, np.sqrt(xk**2 + yk**2))}")
+
+# Poprawiona długość węzła wstępującego:
+    omk = observed_data[19] + (observed_data[24] - Wec) * tk - Wec * observed_data[17]
+
+# Wyznaczenie pozycji satelity w układzie geocentrycznym ECEF:
+    Xk = xk * np.cos(omk) - yk * np.cos(ik) * np.sin(omk)
+    Yk = xk * np.sin(omk) + yk * np.cos(ik) * np.cos(omk)
+    Zk = yk * np.sin(ik)
+    # obliczenie błędu synchronizacji zegara satelity na podstawie wielomianu drugiego stopnia:
+    delta_ts = observed_data[6] + observed_data[7] * (tow - observed_data[17]) + observed_data[8] * (tow - observed_data[17])**2
+    # obliczenie poprawki relatywistycznej i dodanie jej do wartości błędu synchronizacji zegara satelity:
+    c = 299792458.0
+    dt_rel = -2 * np.sqrt(micro * a) / c**2 * observed_data[14] * np.sin(Ek)
+    dt_s_rel = delta_ts + dt_rel
+    return Xk, Yk, Zk, dt_s_rel
 
 # Xk, Yk, Zk, dt_s_rel = sat_position(tow, observed_data[0])
 # print(f"Xk: {Xk}, Yk: {Yk}, Zk: {Zk}, dt_s_rel: {dt_s_rel}")
 # print(f"Xk: {Xk}")
 # print(f"Yk: {Yk}")
 # print(f"Zk: {Zk}")
-
+#
 # # Kontrola
 # print(f"Kontrola: {np.allclose(rk, np.sqrt(Xk**2 + Yk**2 + Zk**2))}")
 #

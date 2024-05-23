@@ -1,5 +1,7 @@
 from readrnx_studenci import readrnxnav, readrnxobs, date2tow, hirvonen
-from roz import sat_position
+from roz import sat_position, satelite_position
+from top import topo
+from jon import jono
 import numpy as np
 
 # cieżka do pliku nawigacyjnego
@@ -22,22 +24,6 @@ nav = nav[zdrowe]
 inav = inav[zdrowe]
 
 
-def obrot(xyz, phi, lamb):
-    '''
-    Parameters
-    ----------
-    xyz : numpy array
-        współrzędne punktu w układzie ECEF.
-    phi : float
-        szerokość geograficzna [rad].
-    lamb : float
-        długość geograficzna [rad].
-    Returns
-    -------
-    xyz_rot : numpy array
-        współrzędne punktu w układzie chwilowym.
-    '''
-
 def Rneu(phi, lamb):
     '''
     Parameters
@@ -55,7 +41,6 @@ def Rneu(phi, lamb):
                     [-np.sin(phi)*np.sin(lamb), np.cos(lamb), np.cos(phi)*np.sin(lamb)],
                     [np.cos(phi), 0, np.sin(phi)]])
     return R
-
 
 #%%
 """
@@ -75,12 +60,15 @@ poprawnej definicji pętli związanej z czasem obserwacji w ciągu całej doby
 """
 week, tow = date2tow(time_start)[0:2]
 week_end, tow_end = date2tow(time_end)[0:2]
+tow = 213300
+week = 2304
 #%% Obliczenia
 
 
 t = 213300
 idx_t = np.where(iobs[:, -1] == t)[0]
 Pobs = obs[idx_t, 0]
+print(f"{Pobs=}\n")
 satelity = iobs[idx_t, 0]
 omega = 7.2921151467*10**-5
 
@@ -98,104 +86,148 @@ for sat in observed_satelites:
     index = np.argmin(dt)
     nav_sat = nav_sat[index]
     observed_data.append(nav_sat)
-
+sats = satelity
 observed_data = np.array(observed_data)
 
-sats = iobs[idx_t, 0]
-Pobs = obs[idx_t, 0]
+# sats = iobs[idx_t, 0]
+# Pobs = obs[idx_t, 0]
 mask = 10
-iters = 1
+iters = 2
+final_xyz = []
+dtr = 0
 for time in range(tow, tow_end+1, 30):
-    if time == 213300:
-        print(f"Pobs: {Pobs}")
-    # print(f"Sats: {sats}")
-    dtr = 0
+    print(f"{time=}\n")
+    # idx_t = np.where(iobs[:, -1] == time)[0]
+    # Pobs = obs[idx_t, 0]
+    # sats = iobs[idx_t, 0]
+    # observed_satelites = np.unique(sats)
+    # observed_data = []
+    # for sat in observed_satelites:
+    #     satelite_index = inav == sat
+    #     nav_sat = nav[satelite_index]
+    #     dt = np.abs(nav_sat[:,17] - tow)
+    #     index = np.argmin(dt)
+    #     nav_sat = nav_sat[index]
+    #     observed_data.append(nav_sat)
+    # observed_data = np.array(observed_data)
+    # print(f"Sats: {sats}\n")
     # tau = 0.07
-    taus = np.array([0.07]*len(sats))
-    rho = np.zeros((len(sats),1)) #?
+    rho = np.array([0]*len(sats))
     xyz = np.array(xr0)
-    print(f"{xyz=}")
     el = np.array([np.pi/2]*len(sats))
     for j in range(iters):
+        print(f"-------------------{j}-------------------\n")
         A = []
-        free_words = []
+        ys = []
+        seen_cnt = 0
+        dts = 0
         for i, sat in enumerate(sats):
-            ts = t - taus[i] + dtr
-            if sat == 25 and time == 213300:
-                print(f"ts: {ts}")
-            xyzdts = sat_position(ts, observed_data[i])
+            # 1. Obliczenie współrzędnych satelity (współrzędnych xyz oraz błędu zegara satelity, z uwzględnieniem
+            # poprawki relatywistycznej, δts ) na czas emisji sygnału ts :
+            # ts = tr + δtr − τ(1)
+            # xs0 , y0s , z0s , δts = satpos(tr , nav)(2)
+            # *uwaga: czas propagacji sygnału τ w pierwszej iteracji jest wartością znaną, przybliżoną, taką samą
+            # dla każdego satelity. W kolejnych iteracjach, wartość ta będzie zależeć od obliczonej w poprzedniej
+            # iteracji odległości geometrycznej: τ = ρs0 /c i będzie różna dla każdego satelity!
+            curr_tau = 0.07 if j == 0 else rho[i]/c
+            print(f"{curr_tau=}\n")
+            ts = time - curr_tau + dtr
+            print(f"{ts=}\n")
+            xyzdts = satelite_position(observed_data[i], ts)
             xs = xyzdts[0:3]
-            if sat == 25 and time == 213300:
-              print(f"xs: {xs}")
+            print(f"{xs=}\n")
             dts = xyzdts[3]
-            if sat == 25 and time == 213300:
-                print(f"{dts=}")
-            alpha = tau * omega
-            m1 = np.array([[np.cos(alpha), np.sin(alpha), 0],
-                          [-np.sin(alpha), np.cos(alpha), 0],
-                          [0, 0, 1]])
-            if sat == 25 and time == 213300:
-              print(f"m1: {m1}")
-            m2 = xs
-            if sat == 25 and time == 213300:
-              print(f"m2: {m2}")
-            xs_rot = np.dot(m1, m2)
-            if sat == 25 and time == 213300:
-              print(f"xs_rot: {xs_rot}")
+            print(f"{dts=}\n")
+            # 2. Transformacja współrzędnych satelity do chwilowego układu współrzędnych, na moment odbioru
+            # sygnału:
+            xs_rot = np.array([[np.cos(omega*curr_tau), np.sin(omega*curr_tau), 0],
+                            [-np.sin(omega*curr_tau), np.cos(omega*curr_tau), 0],
+                            [0, 0, 1]]).dot(xs)
+            print(f"{xs_rot=}\n")
+            # 3. Obliczenie odległości geometrycznej między satelitą a odbiornikiem:
+            # p
+            # ρs0 = (xs − x0 )2 + (y s − y0 )2 + (z s − z0 )2
+            # s
+            # s
+            # (4)
+            # s
+            # * uwaga: za współrzędne satelity x , y , z przyjmujemy współrzędne “obrócone” do chwilowego
+            # układu współrzędnych → wynik równania (3);
+            # *uwaga: z obliczonych odległości geometrycznych (lub czasu propagacji sygnału τ = ρs0 /c) dla
+            # danego satelity będziemy musieli skorzystać w kolejnej iteracji, dlatego trzeba te wartości zapisać
+            # do jakiejś zmiennej.
             p0 = np.sqrt((xs_rot[0] - xyz[0])**2 + (xs_rot[1] - xyz[1])**2 + (xs_rot[2] - xyz[2])**2)
-            if sat == 25 and time == 213300:
-              print(f"p0: {p0}")
-            A.append([-(xs_rot[0] - xyz[0])/p0, -(xs_rot[1] - xyz[1])/p0, -(xs_rot[2] - xyz[2])/p0, 1])
-            print(f"{xs_rot=} {xyz=}")
-            print(p0.shape)
-            rho[i] = p0
-            # convert x,y,z to b,l,h
+            print(f"{p0=}\n")
+            # 4. Wyznaczenie elewacji (i azymutu, niezbędnego do wyznaczenia opóźnienia jonosferycznego) satelity
+            # oraz odrzucenie satelitów znajdujących się poniżej maski;
+            # *uwaga! Współrzędne przybliżone odbiornika x0 w pierwszej iteracji mogą być bardzo odległe od
+            # rzeczywistej pozycji odbiornika. Dlatego w pierwszej iteracji, za wartość elewacji można przyjąć np.
+            # 90◦ dla każdego satelity. W kolejnych iteracjach należy obliczyć odpowiednie kierunki do satelitów,
+            # najpierw przeliczając współrzędne odbiornika x0 do współrzędnych krzywoliniowych, wykorzystując
+            # algorytm Hirvonena.
+
+            sat_odb = np.array([xs_rot[0] - xyz[0], xs_rot[1] - xyz[1], xs_rot[2] - xyz[2]])
+            print(f"{sat_odb=}\n")
+
             b,l,h = hirvonen(xyz[0], xyz[1], xyz[2])
-            if sat == 25 and time == 213300:
-              print(f"b: {np.rad2deg(b)}, l: {np.rad2deg(l)}, h: {h}")
-            x_neu = np.dot(Rneu(b, l), xs_rot)
-            az = np.rad2deg(np.arctan2(x_neu[1], x_neu[0]))
+
+            # x_neu = np.dot(Rneu(b, l), xs_rot)
+            # az = np.rad2deg(np.arctan2(x_neu[1], x_neu[0]))
+            # az = az if az>0 else az + 360
+            # el = np.rad2deg(np.arcsin(x_neu[2]/np.linalg.norm(x_neu)))
+            R = Rneu(b, l)
+            neu = R.T.dot(sat_odb)
+            az = np.rad2deg(np.arctan2(neu[1], neu[0]))
             az = az if az>0 else az + 360
-            el = np.rad2deg(np.arcsin(x_neu[2]/np.linalg.norm(x_neu)))
-            az = np.deg2rad(az)
-            el = np.deg2rad(el)
-            # print(f"{az=} {el=}")
-            if el>np.deg2rad(mask):
+            el = np.rad2deg(np.arcsin(neu[2]/np.linalg.norm(neu)))
+            print(f"{az=}, {el=}\n")
+
+            # 5. Wyznaczenie opóźnienia troposferycznego δTrs i jonosferycznego δIrs dla danego satelity (wzory w
+            # odpowiednich prezentacjach).
+            rho[i] = p0
+            if el>mask:
+                seen_cnt += 1
+                a_el = np.array([-(xs_rot[0] - xyz[0])/p0, -(xs_rot[1] - xyz[1])/p0, -(xs_rot[2] - xyz[2])/p0, 1])
+                print(f"{a_el=}\n")
+                A.append(a_el)
                 if j == 0:
-                    trop = 0
+                    dT = 0
+                    dJ = 0
                 else:
-                    hort = h - 31.36
-                    print(f"{hort=}")
-                    p = 1013.25 * (1-0.0000226*hort)**5.225
-                    temp = 291.15 - 0.0065*hort
-                    Rh = 0.5 * np.exp(-0.0006396*hort)
-                    e = 6.11 * Rh * 100**((7.5*(temp-273.15))/(temp - 35.85))
-                    Nd0 = 77.64*p/temp
-                    Nw0 = -12.96*3/temp + 3.718*10**5*e/temp**2
-                    hd = 40136 + 148.72*(temp-273.15)
-                    hw = 11000
-                    dTd0 = 10**(-6)/5 * Nd0 * hd
-                    dTw0 = 10**(-6)/5 * Nw0 * hw
-                    md = 1/(np.sin(np.deg2rad(np.sqrt(np.rad2deg(el) ** 2 + 6.25))))
-                    mw = 1/(np.sin(np.deg2rad(np.sqrt(np.rad2deg(el) ** 2 + 2.25))))
-                    dT = dTd0 * md + dTw0 + mw
-            cdts = c * dts
-            print(f"c*dts: {cdts}")
-            Pcalc = np.float64(rho[i] - cdts + dtr)
-            print(f"{Pcalc=}")
-            y = Pobs[i] - Pcalc
-            free_words.append(y)
+                    dT = topo(h, el)
+                    dJ = jono(tow, b, l, el, az)
+                cdts = c * dts
+                Pcalc = np.float64(rho[i] - cdts + c*dtr) # + dT + dJ)
+                print(f"{Pcalc=}\n")
+                Pobs[i] = rho[i]+c*dts-c*dtr # + dT + dJ
+                print(f"{Pobs[i]=}\n")
+                y = Pobs[i] - Pcalc
+                ys.append(y)
+        print(f"{seen_cnt=}\n")
+        if seen_cnt < 4:
+            break
         A = np.array(A)
-        free_words = np.array(free_words)
-        print(f"{free_words=}")
-        x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, free_words.squeeze()))
-        print(f"{x=}")
-        xr0[0] += x[0]
-        xr0[1] += x[1]
-        xr0[2] += x[2]
-        print(f"{xr0=}")
+        print(f"{A=}\n")
+        ys = np.array(ys)
+        print(f"{ys=}\n")
+        x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, ys))
+        print(f"{x=}\n")
+        xyz[0] += x[0]
+        xyz[1] += x[1]
+        xyz[2] += x[2]
+        dtr += x[3]/c
+        print(f"{dtr=}\n")
+    exit()
+    final_xyz.append(xyz)
 
-
+import matplotlib.pyplot as plt
+final_xyz = np.array(final_xyz)
+dists = []
+for xyz in final_xyz:
+    dist = np.sqrt((xyz[0] - xr0[0])**2 + (xyz[1] - xr0[1])**2 + (xyz[2] - xr0[2])**2)
+    dists.append(dist)
+plt.plot(dists)
+plt.show()
 
 """
 Otwieramy dużą pętlę
