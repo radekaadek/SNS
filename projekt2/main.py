@@ -48,7 +48,6 @@ zdefiniowanie współrzędnych przybliżonych odbiornika - mogą to być współ
 pliku obserwacyjnego, skopiowane "z palca" lub pobierane automatycznie z treci nagłówka pliku Rinex
 """
 xr0 = [3660000.,  1400000.,  5000000.]
-xr0_start = [3664880.9100, 1409190.3850, 5009618.2850]
 
 """
 Wprowadzenie ustawień, takich jak maska obserwacji, czy typ poprawki troposferycznej
@@ -66,72 +65,19 @@ week = 2304
 #%% Obliczenia
 
 
-<<<<<<< HEAD
-# t = 213300
-# idx_t = np.where(iobs[:, -1] == t)[0]
-# Pobs = obs[idx_t, 0]
-# satelity = iobs[idx_t, 0]
-=======
 t = 213300
 idx_t = np.where(iobs[:, -1] == t)[0]
 Pobs = obs[idx_t, 0]
 print(f"{Pobs=}\n")
 satelity = iobs[idx_t, 0]
->>>>>>> stary_com
 omega = 7.2921151467*10**-5
 
 tau = 0.07
 dtr = 0
-C = 299792458
-# observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
-# find all available satelites instead of observed_satelites
-# observed_satelites = np.unique(satelity)
-# print(observed_satelites)
-# mask_rad = np.deg2rad(el_mask)
-#
-# observed_data = []
-# for sat in observed_satelites:
-#     satelite_index = inav == sat
-#     nav_sat = nav[satelite_index]
-#     dt = np.abs(nav_sat[:,17] - tow)
-#     index = np.argmin(dt)
-#     nav_sat = nav_sat[index]
-#     observed_data.append(nav_sat)
-#
-# observed_data = np.array(observed_data)
-# print(observed_data)
+c = 299792458
+observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
+mask_rad = np.deg2rad(el_mask)
 
-<<<<<<< HEAD
-observed_positions = []
-
-#
-# sats = iobs[idx_t, 0]
-# Pobs = obs[idx_t, 0]
-mask = 10
-iters = 5
-xyz = np.array(xr0)
-for time in range(tow, tow_end+1, 30):
-    idx_t = np.where(iobs[:, -1] == time)[0]
-    Pobs = obs[idx_t, 0]
-    satelity = iobs[idx_t, 0]
-    observed_satelites = np.unique(satelity)
-    print(observed_satelites)
-    mask_rad = np.deg2rad(el_mask)
-
-    observed_data = []
-    for sat in observed_satelites:
-        satelite_index = inav == sat
-        nav_sat = nav[satelite_index]
-        dt = np.abs(nav_sat[:,17] - tow)
-        index = np.argmin(dt)
-        nav_sat = nav_sat[index]
-        observed_data.append(nav_sat)
-    sats = iobs[idx_t, 0]
-    Pobs = obs[idx_t, 0]
-    dtr = 0
-    taus = np.array([0.07]*len(sats))
-    rho = np.zeros((len(sats),1))
-=======
 observed_data = []
 for sat in observed_satelites:
     satelite_index = inav == sat
@@ -167,79 +113,11 @@ for time in range(tow, tow_end+1, 30):
     # print(f"Sats: {sats}\n")
     # tau = 0.07
     rho = np.array([0]*len(sats))
->>>>>>> stary_com
     xyz = np.array(xr0)
     el = np.array([np.pi/2]*len(sats))
     for j in range(iters):
         print(f"-------------------{j}-------------------\n")
         A = []
-<<<<<<< HEAD
-        free_words = []
-        trop = 0
-        for i, sat in enumerate(sats):
-            ts = time - taus[i] + dtr
-            xyzdts = sat_position(ts, observed_data[i])
-            xs = xyzdts[0:3]
-            dts = xyzdts[3]
-            alpha = tau * omega
-            rot_mat = np.array([[np.cos(alpha), np.sin(alpha), 0],
-                          [-np.sin(alpha), np.cos(alpha), 0],
-                          [0, 0, 1]])
-            xs_rot = np.dot(rot_mat, xs)
-            p0 = np.sqrt((xs_rot[0] - xyz[0])**2 + (xs_rot[1] - xyz[1])**2 + (xs_rot[2] - xyz[2])**2)
-            A.append([-(xs_rot[0] - xyz[0])/p0, -(xs_rot[1] - xyz[1])/p0, -(xs_rot[2] - xyz[2])/p0, 1])
-            rho[i] = p0
-            # convert x,y,z to b,l,h
-            b,l,h = hirvonen(xyz[0], xyz[1], xyz[2])
-            x_neu = np.dot(Rneu(b, l), xs_rot)
-            az = np.rad2deg(np.arctan2(x_neu[1], x_neu[0]))
-            az = az if az>0 else az + 360
-            el = np.rad2deg(np.arcsin(x_neu[2]/np.linalg.norm(x_neu)))
-            if el>mask:
-                print(f"{az=} {el=}")
-                if j != 0:
-                    hort = h - 31.36
-                    p = 1013.25 * (float(1-0.0000226*hort)**5.225)
-                    temp = 291.15 - 0.0065*hort
-                    Rh = 0.5 * np.exp(-0.0006396*hort)
-                    e = 6.11 * Rh * 100**((7.5*(temp-273.15))/(temp - 35.85))
-                    Nd0 = 77.64*p/temp
-                    Nw0 = -12.96*3/temp + 3.718*10**5*e/temp**2
-                    hd = 40136 + 148.72*(temp-273.15)
-                    hw = 11000
-                    dTd0 = 10**(-6)/5 * Nd0 * hd
-                    dTw0 = 10**(-6)/5 * Nw0 * hw
-                    md = 1/(np.sin(np.deg2rad(np.sqrt(el ** 2 + 6.25))))
-                    mw = 1/(np.sin(np.deg2rad(np.sqrt(el ** 2 + 2.25))))
-                    dT = dTd0 * md + dTw0 + mw
-                    trop = dT
-            cdts = C * dts
-            Pcalc = np.float64((rho[i] - cdts + dtr)[0])
-            y = Pobs[i] - Pcalc
-            free_words.append(y)
-        A = np.array(A)
-        free_words = np.array(free_words)
-        print(f"{A=}")
-        x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, free_words))
-        print(F"{x=}")
-        xr0[0] += x[0]
-        xr0[1] += x[1]
-        xr0[2] += x[2]
-        dtr += x[3]/C
-        print(f"{xr0=}")
-    observed_positions.append(xr0)
-print("OK")
-
-observed_positions = np.array(observed_positions)
-import matplotlib.pyplot as plt
-distances = []
-for pos in observed_positions:
-    error = np.sqrt((pos[0] - xr0_start[0])**2 + (pos[1] - xr0_start[1])**2 + (pos[2] - xr0_start[2])**2)
-    distances.append(error)
-plt.plot(distances)
-plt.show()
-
-=======
         ys = []
         seen_cnt = 0
         dts = 0
@@ -341,7 +219,6 @@ plt.show()
         print(f"{dtr=}\n")
     exit()
     final_xyz.append(xyz)
->>>>>>> stary_com
 
 import matplotlib.pyplot as plt
 final_xyz = np.array(final_xyz)
