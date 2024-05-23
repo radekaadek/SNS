@@ -79,35 +79,59 @@ week_end, tow_end = date2tow(time_end)[0:2]
 #%% Obliczenia
 
 
-t = 213300
-idx_t = np.where(iobs[:, -1] == t)[0]
-Pobs = obs[idx_t, 0]
-satelity = iobs[idx_t, 0]
+# t = 213300
+# idx_t = np.where(iobs[:, -1] == t)[0]
+# Pobs = obs[idx_t, 0]
+# satelity = iobs[idx_t, 0]
 omega = 7.2921151467*10**-5
 
 tau = 0.07
 dtr = 0
 C = 299792458
-observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
-mask_rad = np.deg2rad(el_mask)
+# observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
+# find all available satelites instead of observed_satelites
+# observed_satelites = np.unique(satelity)
+# print(observed_satelites)
+# mask_rad = np.deg2rad(el_mask)
+#
+# observed_data = []
+# for sat in observed_satelites:
+#     satelite_index = inav == sat
+#     nav_sat = nav[satelite_index]
+#     dt = np.abs(nav_sat[:,17] - tow)
+#     index = np.argmin(dt)
+#     nav_sat = nav_sat[index]
+#     observed_data.append(nav_sat)
+#
+# observed_data = np.array(observed_data)
+# print(observed_data)
 
-observed_data = []
-for sat in observed_satelites:
-    satelite_index = inav == sat
-    nav_sat = nav[satelite_index]
-    dt = np.abs(nav_sat[:,17] - tow)
-    index = np.argmin(dt)
-    nav_sat = nav_sat[index]
-    observed_data.append(nav_sat)
-
-observed_data = np.array(observed_data)
 observed_positions = []
 
-sats = iobs[idx_t, 0]
-Pobs = obs[idx_t, 0]
+#
+# sats = iobs[idx_t, 0]
+# Pobs = obs[idx_t, 0]
 mask = 10
 iters = 5
+xyz = np.array(xr0)
 for time in range(tow, tow_end+1, 30):
+    idx_t = np.where(iobs[:, -1] == time)[0]
+    Pobs = obs[idx_t, 0]
+    satelity = iobs[idx_t, 0]
+    observed_satelites = np.unique(satelity)
+    print(observed_satelites)
+    mask_rad = np.deg2rad(el_mask)
+
+    observed_data = []
+    for sat in observed_satelites:
+        satelite_index = inav == sat
+        nav_sat = nav[satelite_index]
+        dt = np.abs(nav_sat[:,17] - tow)
+        index = np.argmin(dt)
+        nav_sat = nav_sat[index]
+        observed_data.append(nav_sat)
+    sats = iobs[idx_t, 0]
+    Pobs = obs[idx_t, 0]
     dtr = 0
     taus = np.array([0.07]*len(sats))
     rho = np.zeros((len(sats),1))
@@ -136,13 +160,10 @@ for time in range(tow, tow_end+1, 30):
             az = np.rad2deg(np.arctan2(x_neu[1], x_neu[0]))
             az = az if az>0 else az + 360
             el = np.rad2deg(np.arcsin(x_neu[2]/np.linalg.norm(x_neu)))
-            print(f"{az=} {el=}")
-            az = np.deg2rad(az)
-            el = np.deg2rad(el)
-            if el>np.deg2rad(mask):
+            if el>mask:
+                print(f"{az=} {el=}")
                 if j != 0:
                     hort = h - 31.36
-                    # p = 1013.25 * (1-0.0000226*hort)**5.225
                     p = 1013.25 * (float(1-0.0000226*hort)**5.225)
                     temp = 291.15 - 0.0065*hort
                     Rh = 0.5 * np.exp(-0.0006396*hort)
@@ -153,8 +174,8 @@ for time in range(tow, tow_end+1, 30):
                     hw = 11000
                     dTd0 = 10**(-6)/5 * Nd0 * hd
                     dTw0 = 10**(-6)/5 * Nw0 * hw
-                    md = 1/(np.sin(np.deg2rad(np.sqrt(np.rad2deg(el) ** 2 + 6.25))))
-                    mw = 1/(np.sin(np.deg2rad(np.sqrt(np.rad2deg(el) ** 2 + 2.25))))
+                    md = 1/(np.sin(np.deg2rad(np.sqrt(el ** 2 + 6.25))))
+                    mw = 1/(np.sin(np.deg2rad(np.sqrt(el ** 2 + 2.25))))
                     dT = dTd0 * md + dTw0 + mw
                     trop = dT
             cdts = C * dts
@@ -163,15 +184,16 @@ for time in range(tow, tow_end+1, 30):
             free_words.append(y)
         A = np.array(A)
         free_words = np.array(free_words)
-        print(f"{A=}\n np.linalg.inv(np.dot(A.T, A))=\n{np.linalg.inv(np.dot(A.T, A))}")
-        x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, free_words.squeeze()))
+        print(f"{A=}")
+        x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, free_words))
+        print(F"{x=}")
         xr0[0] += x[0]
         xr0[1] += x[1]
         xr0[2] += x[2]
         dtr += x[3]/C
         print(f"{xr0=}")
     observed_positions.append(xr0)
-
+print("OK")
 
 observed_positions = np.array(observed_positions)
 import matplotlib.pyplot as plt
