@@ -1,5 +1,5 @@
 from readrnx_studenci import readrnxnav, readrnxobs, date2tow, hirvonen
-from roz import sat_position, satelite_position
+from roz import satpos, satelite_position
 from top import topo
 from jon import jono
 import numpy as np
@@ -48,7 +48,6 @@ zdefiniowanie współrzędnych przybliżonych odbiornika - mogą to być współ
 pliku obserwacyjnego, skopiowane "z palca" lub pobierane automatycznie z treci nagłówka pliku Rinex
 """
 xr0 = [3660000.,  1400000.,  5000000.]
-xr_true = [3664880.9100,  1409190.3850,  5009618.2850]
 
 """
 Wprowadzenie ustawień, takich jak maska obserwacji, czy typ poprawki troposferycznej
@@ -92,34 +91,32 @@ observed_data = np.array(observed_data)
 # sats = iobs[idx_t, 0]
 # Pobs = obs[idx_t, 0]
 mask = 10
-iters = 2
+iters = 5
 final_xyz = []
 for time in range(tow, tow_end+1, 30):
-    print(f"{time=}\n")
+    # print(f"{time=}\n")
     idx_t = np.where(iobs[:, -1] == time)[0]
     Pobs = obs[idx_t, 0]
     sats = iobs[idx_t, 0]
-    # observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
-    # observed_data = []
-    # for sat in observed_satelites:
-    #     satelite_index = inav == sat
-    #     nav_sat = nav[satelite_index]
-    #     dt = np.abs(nav_sat[:,17] - tow)
-    #     index = np.argmin(dt)
-    #     nav_sat = nav_sat[index]
-    #     observed_data.append(nav_sat)
-    # observed_data = np.array(observed_data)
-    # print(f"Sats: {sats}\n")
-    # tau = 0.07
+    # print(f"{sats=}\n")
+    observed_satelites = sats
+    observed_data = []
+    for sat in observed_satelites:
+        satelite_index = inav == sat
+        nav_sat = nav[satelite_index]
+        dt = np.abs(nav_sat[:,17] - tow)
+        index = np.argmin(dt)
+        nav_sat = nav_sat[index]
+        observed_data.append(nav_sat)
+    observed_data = np.array(observed_data)
     rho = np.array([0]*len(sats))
-    xyz = np.array(xr0)
+    xyz = np.array(xr0) if time == tow else np.array(final_xyz[-1])
     el = np.array([np.pi/2]*len(sats))
-    dtr = 0
+    # dtr = 0
     for j in range(iters):
-        print(f"-------------------{j}-------------------\n")
+        # print(f"-------------------{j}-------------------\n")
         A = []
         ys = []
-        seen_cnt = 0
         for i, sat in enumerate(sats):
             # 1. Obliczenie współrzędnych satelity (współrzędnych xyz oraz błędu zegara satelity, z uwzględnieniem
             # poprawki relatywistycznej, δts ) na czas emisji sygnału ts :
@@ -129,20 +126,21 @@ for time in range(tow, tow_end+1, 30):
             # dla każdego satelity. W kolejnych iteracjach, wartość ta będzie zależeć od obliczonej w poprzedniej
             # iteracji odległości geometrycznej: τ = ρs0 /c i będzie różna dla każdego satelity!
             curr_tau = 0.07 if j == 0 else rho[i]/c
-            print(f"{curr_tau=}\n")
+            # print(f"{curr_tau=}\n")
             ts = time - curr_tau + dtr
-            print(f"{ts=}\n")
-            xyzdts = satelite_position(observed_data[i], ts)
+            # print(f"{ts=}\n")
+            # xyzdts = satelite_position(observed_data[i], ts)
+            xyzdts = satpos(ts, observed_data[i])
             xs = xyzdts[0:3]
-            print(f"{xs=}\n")
+            # print(f"{xs=}\n")
             dts = xyzdts[3]
-            print(f"{dts=}\n")
+            # print(f"{dts=}\n")
             # 2. Transformacja współrzędnych satelity do chwilowego układu współrzędnych, na moment odbioru
             # sygnału:
             xs_rot = np.array([[np.cos(omega*curr_tau), np.sin(omega*curr_tau), 0],
                             [-np.sin(omega*curr_tau), np.cos(omega*curr_tau), 0],
                             [0, 0, 1]]).dot(xs)
-            print(f"{xs_rot=}\n")
+            # print(f"{xs_rot=}\n")
             # 3. Obliczenie odległości geometrycznej między satelitą a odbiornikiem:
             # p
             # ρs0 = (xs − x0 )2 + (y s − y0 )2 + (z s − z0 )2
@@ -156,7 +154,7 @@ for time in range(tow, tow_end+1, 30):
             # danego satelity będziemy musieli skorzystać w kolejnej iteracji, dlatego trzeba te wartości zapisać
             # do jakiejś zmiennej.
             p0 = np.sqrt((xs_rot[0] - xyz[0])**2 + (xs_rot[1] - xyz[1])**2 + (xs_rot[2] - xyz[2])**2)
-            print(f"{p0=}\n")
+            # print(f"{p0=}\n")
             # 4. Wyznaczenie elewacji (i azymutu, niezbędnego do wyznaczenia opóźnienia jonosferycznego) satelity
             # oraz odrzucenie satelitów znajdujących się poniżej maski;
             # *uwaga! Współrzędne przybliżone odbiornika x0 w pierwszej iteracji mogą być bardzo odległe od
@@ -166,7 +164,7 @@ for time in range(tow, tow_end+1, 30):
             # algorytm Hirvonena.
 
             sat_odb = np.array([xs_rot[0] - xyz[0], xs_rot[1] - xyz[1], xs_rot[2] - xyz[2]])
-            print(f"{sat_odb=}\n")
+            # print(f"{sat_odb=}\n")
 
             b,l,h = hirvonen(xyz[0], xyz[1], xyz[2])
 
@@ -179,15 +177,14 @@ for time in range(tow, tow_end+1, 30):
             az = np.rad2deg(np.arctan2(neu[1], neu[0]))
             az = az if az>0 else az + 360
             el = np.rad2deg(np.arcsin(neu[2]/np.linalg.norm(neu)))
-            print(f"{az=}, {el=}\n")
+            # print(f"{el=}, {az=}\n")
 
             # 5. Wyznaczenie opóźnienia troposferycznego δTrs i jonosferycznego δIrs dla danego satelity (wzory w
             # odpowiednich prezentacjach).
             rho[i] = p0
             if el>mask:
-                seen_cnt += 1
                 a_el = np.array([-(xs_rot[0] - xyz[0])/p0, -(xs_rot[1] - xyz[1])/p0, -(xs_rot[2] - xyz[2])/p0, 1])
-                print(f"{a_el=}\n")
+                # print(f"{a_el=}\n")
                 A.append(a_el)
                 if j == 0:
                     dT = 0
@@ -195,39 +192,53 @@ for time in range(tow, tow_end+1, 30):
                 else:
                     dT = topo(h, el)
                     dJ = jono(tow, b, l, el, az)
-                print(f"{dT=}, {dJ=}\n")
+                # print(f"{dT=}, {dJ=}\n")
                 # cdts = c * dts
-                Pcalc = np.float64(rho[i] - c*dts + c*dtr) # + dT + dJ)
-                print(f"{Pcalc=}\n")
-                print(f"{Pobs[i]=}\n")
+                Pcalc = rho[i] - c*dts + c*dtr + dT + dJ
+                # print(f"{Pcalc=}\n")
+                # print(f"{Pobs[i]=}\n")
                 y = Pobs[i] - Pcalc
-                print(f"{y=}\n")
+                # print(f"{y=}\n")
                 ys.append(y)
-        print(f"{seen_cnt=}\n")
-        if seen_cnt < 4:
-            break
         A = np.array(A)
-        print(f"{A=}\n")
+        # print(f"{A=}\n")
         ys = np.array(ys)
-        print(f"{ys=}\n")
+        # print(f"{ys=}\n")
         x = np.linalg.inv(np.dot(A.T, A)).dot(np.dot(A.T, ys))
-        print(f"{x=}\n")
+        # print(f"{x=}\n")
         xyz[0] += x[0]
         xyz[1] += x[1]
         xyz[2] += x[2]
         dtr += x[3]/c
-        print(f"{dtr=}\n")
-    print(f"{xyz=}\n")
-    exit()
+        # print(f"{dtr=}\n")
+    # print(f"{xyz=}\n")
     final_xyz.append(xyz)
 
+xr_true = [3664880.9100,  1409190.3850,  5009618.2850]
 import matplotlib.pyplot as plt
 final_xyz = np.array(final_xyz)
-dists = []
-for xyz in final_xyz:
-    dist = np.sqrt((xyz[0] - xr_true[0])**2 + (xyz[1] - xr_true[1])**2 + (xyz[2] - xr_true[2])**2)
-    dists.append(dist)
-plt.plot(dists)
+# show 3 axis with xerror, yerror, zerror and RMS
+plot, ax = plt.subplots(3, 1, figsize=(10, 10))
+ax[0].plot(final_xyz[:, 0] - xr_true[0], label='xerror')
+ax[0].plot([0, len(final_xyz)], [0, 0], 'r--')
+RMS = np.sqrt(np.mean((final_xyz[:, 0] - xr_true[0])**2))
+RMS = round(RMS, 2)
+ax[0].set_title(f'X error, RMS = {RMS}')
+# add RMS to the legend
+ax[0].legend()
+ax[1].plot(final_xyz[:, 1] - xr_true[1], label='yerror')
+ax[1].plot([0, len(final_xyz)], [0, 0], 'r--')
+RMS = np.sqrt(np.mean((final_xyz[:, 1] - xr_true[1])**2))
+RMS = round(RMS, 2)
+ax[1].set_title(f'Y error, RMS = {RMS}')
+ax[1].legend()
+ax[2].plot(final_xyz[:, 2] - xr_true[2], label='zerror')
+ax[2].plot([0, len(final_xyz)], [0, 0], 'r--')
+RMS = np.sqrt(np.mean((final_xyz[:, 2] - xr_true[2])**2))
+RMS = round(RMS, 2)
+ax[2].set_title(f'Z error, RMS = {RMS}')
+ax[2].legend()
+
 plt.show()
 
 """
