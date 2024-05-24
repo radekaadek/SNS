@@ -48,6 +48,7 @@ zdefiniowanie współrzędnych przybliżonych odbiornika - mogą to być współ
 pliku obserwacyjnego, skopiowane "z palca" lub pobierane automatycznie z treci nagłówka pliku Rinex
 """
 xr0 = [3660000.,  1400000.,  5000000.]
+xr_true = [3664880.9100,  1409190.3850,  5009618.2850]
 
 """
 Wprowadzenie ustawień, takich jak maska obserwacji, czy typ poprawki troposferycznej
@@ -65,18 +66,17 @@ week = 2304
 #%% Obliczenia
 
 
-t = 213300
-idx_t = np.where(iobs[:, -1] == t)[0]
-Pobs = obs[idx_t, 0]
-print(f"{Pobs=}\n")
-satelity = iobs[idx_t, 0]
+# t = 213300
+# idx_t = np.where(iobs[:, -1] == t)[0]
+# Pobs = obs[idx_t, 0]
+# print(f"{Pobs=}\n")
+# satelity = iobs[idx_t, 0]
 omega = 7.2921151467*10**-5
 
 tau = 0.07
 dtr = 0
 c = 299792458
 observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
-mask_rad = np.deg2rad(el_mask)
 
 observed_data = []
 for sat in observed_satelites:
@@ -86,7 +86,7 @@ for sat in observed_satelites:
     index = np.argmin(dt)
     nav_sat = nav_sat[index]
     observed_data.append(nav_sat)
-sats = satelity
+# sats = satelity
 observed_data = np.array(observed_data)
 
 # sats = iobs[idx_t, 0]
@@ -94,13 +94,12 @@ observed_data = np.array(observed_data)
 mask = 10
 iters = 2
 final_xyz = []
-dtr = 0
 for time in range(tow, tow_end+1, 30):
     print(f"{time=}\n")
-    # idx_t = np.where(iobs[:, -1] == time)[0]
-    # Pobs = obs[idx_t, 0]
-    # sats = iobs[idx_t, 0]
-    # observed_satelites = np.unique(sats)
+    idx_t = np.where(iobs[:, -1] == time)[0]
+    Pobs = obs[idx_t, 0]
+    sats = iobs[idx_t, 0]
+    # observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
     # observed_data = []
     # for sat in observed_satelites:
     #     satelite_index = inav == sat
@@ -115,12 +114,12 @@ for time in range(tow, tow_end+1, 30):
     rho = np.array([0]*len(sats))
     xyz = np.array(xr0)
     el = np.array([np.pi/2]*len(sats))
+    dtr = 0
     for j in range(iters):
         print(f"-------------------{j}-------------------\n")
         A = []
         ys = []
         seen_cnt = 0
-        dts = 0
         for i, sat in enumerate(sats):
             # 1. Obliczenie współrzędnych satelity (współrzędnych xyz oraz błędu zegara satelity, z uwzględnieniem
             # poprawki relatywistycznej, δts ) na czas emisji sygnału ts :
@@ -196,12 +195,13 @@ for time in range(tow, tow_end+1, 30):
                 else:
                     dT = topo(h, el)
                     dJ = jono(tow, b, l, el, az)
-                cdts = c * dts
-                Pcalc = np.float64(rho[i] - cdts + c*dtr) # + dT + dJ)
+                print(f"{dT=}, {dJ=}\n")
+                # cdts = c * dts
+                Pcalc = np.float64(rho[i] - c*dts + c*dtr) # + dT + dJ)
                 print(f"{Pcalc=}\n")
-                Pobs[i] = rho[i]+c*dts-c*dtr # + dT + dJ
                 print(f"{Pobs[i]=}\n")
                 y = Pobs[i] - Pcalc
+                print(f"{y=}\n")
                 ys.append(y)
         print(f"{seen_cnt=}\n")
         if seen_cnt < 4:
@@ -217,6 +217,7 @@ for time in range(tow, tow_end+1, 30):
         xyz[2] += x[2]
         dtr += x[3]/c
         print(f"{dtr=}\n")
+    print(f"{xyz=}\n")
     exit()
     final_xyz.append(xyz)
 
@@ -224,7 +225,7 @@ import matplotlib.pyplot as plt
 final_xyz = np.array(final_xyz)
 dists = []
 for xyz in final_xyz:
-    dist = np.sqrt((xyz[0] - xr0[0])**2 + (xyz[1] - xr0[1])**2 + (xyz[2] - xr0[2])**2)
+    dist = np.sqrt((xyz[0] - xr_true[0])**2 + (xyz[1] - xr_true[1])**2 + (xyz[2] - xr_true[2])**2)
     dists.append(dist)
 plt.plot(dists)
 plt.show()
