@@ -19,9 +19,9 @@ obs, iobs = readrnxobs(obs_file, time_start, time_end, 'G')
 # odczytanie danych z pliku nawigacyjnego:
 nav, inav = readrnxnav(nav_file)
 
-zdrowe = nav[:, 30] == 0
-nav = nav[zdrowe]
-inav = inav[zdrowe]
+healthy = nav[:, 30] == 0
+nav = nav[healthy]
+inav = inav[healthy]
 
 
 def Rneu(phi, lamb):
@@ -219,24 +219,27 @@ import matplotlib.pyplot as plt
 final_xyz = np.array(final_xyz)
 # show 3 axis with xerror, yerror, zerror and RMS
 plot, ax = plt.subplots(3, 1, figsize=(10, 10))
-ax[0].plot(final_xyz[:, 0] - xr_true[0], label='xerror')
+ax[0].plot(final_xyz[:, 0] - xr_true[0], label='X error')
 ax[0].plot([0, len(final_xyz)], [0, 0], 'r--')
 RMS = np.sqrt(np.mean((final_xyz[:, 0] - xr_true[0])**2))
 RMS = round(RMS, 2)
-ax[0].set_title(f'X error, RMS = {RMS}')
+stdev_x = np.std(final_xyz[:, 0] - xr_true[0])
+ax[0].set_title(f'X error, RMS = {RMS}m, Standard deviation = {round(stdev_x, 2)}m')
 # add RMS to the legend
 ax[0].legend()
-ax[1].plot(final_xyz[:, 1] - xr_true[1], label='yerror')
+ax[1].plot(final_xyz[:, 1] - xr_true[1], label='Y error')
 ax[1].plot([0, len(final_xyz)], [0, 0], 'r--')
 RMS = np.sqrt(np.mean((final_xyz[:, 1] - xr_true[1])**2))
 RMS = round(RMS, 2)
-ax[1].set_title(f'Y error, RMS = {RMS}')
+stdev_y = np.std(final_xyz[:, 1] - xr_true[1])
+ax[1].set_title(f'Y error, RMS = {RMS}m, Standard deviation = {round(stdev_y, 2)}m')
 ax[1].legend()
-ax[2].plot(final_xyz[:, 2] - xr_true[2], label='zerror')
+ax[2].plot(final_xyz[:, 2] - xr_true[2], label='Z error')
 ax[2].plot([0, len(final_xyz)], [0, 0], 'r--')
 RMS = np.sqrt(np.mean((final_xyz[:, 2] - xr_true[2])**2))
 RMS = round(RMS, 2)
-ax[2].set_title(f'Z error, RMS = {RMS}')
+stdev_z = np.std(final_xyz[:, 2] - xr_true[2])
+ax[2].set_title(f'Z error, RMS = {RMS}m, Standard deviation = {round(stdev_z, 2)}m')
 ax[2].legend()
 
 plt.show()

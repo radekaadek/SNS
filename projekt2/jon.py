@@ -15,10 +15,6 @@ def jono(tow, phi, lam, el, az):
         elewacja satelity
     az : float [degrees]
         azymut satelity
-    alfa : list/np.array - 4-elemntowa lista
-        współczynniki alfa modelu Klobuchara
-    beta : list/np.array - 4-elemntowa lista
-        współczynniki beta modelu Klobuchara
 
     Returns
     -------

@@ -25,32 +25,32 @@ def hirvonen(X,Y,Z):
     H = r/np.cos(B) - N
     return B, L, H
 
-nav_file = 'BRDC00WRD_R_20240650000_01D_GN.rnx'
-
-nav, inav = readrnxnav(nav_file)
-
-
-healthy = nav[:, 30] == 0
-
-nav = nav[healthy]
-inav = inav[healthy]
-
-data_obliczen = [2024,3,5,11,15,0]
-week, tow, _ = date2tow(data_obliczen)
-
-
-observed_satelites = [2,5,8,10,24]
-
-observed_data = []
-for sat in observed_satelites:
-    satelite_index = inav == sat
-    nav_sat = nav[satelite_index]
-    dt = np.abs(nav_sat[:,17] - tow)
-    index = np.argmin(dt)
-    nav_sat = nav_sat[index]
-    observed_data.append(nav_sat)
-
-observed_data = np.array(observed_data)
+# nav_file = 'BRDC00WRD_R_20240650000_01D_GN.rnx'
+#
+# nav, inav = readrnxnav(nav_file)
+#
+#
+# healthy = nav[:, 30] == 0
+#
+# nav = nav[healthy]
+# inav = inav[healthy]
+#
+# data_obliczen = [2024,3,5,11,15,0]
+# week, tow, _ = date2tow(data_obliczen)
+#
+#
+# observed_satelites = [2,5,8,10,24]
+#
+# observed_data = []
+# for sat in observed_satelites:
+#     satelite_index = inav == sat
+#     nav_sat = nav[satelite_index]
+#     dt = np.abs(nav_sat[:,17] - tow)
+#     index = np.argmin(dt)
+#     nav_sat = nav_sat[index]
+#     observed_data.append(nav_sat)
+#
+# observed_data = np.array(observed_data)
 
 def julday(y,m,d,h=0):
     '''
