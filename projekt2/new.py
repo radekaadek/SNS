@@ -1,5 +1,5 @@
 from readrnx_studenci import readrnxnav, readrnxobs, date2tow, hirvonen
-from roz import sat_position
+from roz import satpos
 import numpy as np
 
 # cieżka do pliku nawigacyjnego
@@ -119,7 +119,7 @@ for time in range(tow, tow_end+1, 30):
         trop = 0
         for i, sat in enumerate(sats):
             ts = time - taus[i] + dtr
-            xyzdts = sat_position(ts, observed_data[i])
+            xyzdts = satpos(ts, observed_data[i])
             xs = xyzdts[0:3]
             dts = xyzdts[3]
             alpha = tau * omega

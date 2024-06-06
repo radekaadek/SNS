@@ -80,39 +80,39 @@ def get_gps_time(y, m, d, h, mnt, s):
 micro = 3.986005 * 10**14
 Wec = 7.2921151467e-5
 Uc = 3.986005e14
-def sat_position(time, nav):
+def satpos(time, nav):
     toc = get_gps_time(nav[0], nav[1], nav[2], nav[3], nav[4], nav[5])[1]
     toe = nav[17]
     tk = time - toe
-    if __name__ == '__main__':
-        print(f'tk={tk}')
+    # if __name__ == '__main__':
+    #     print(f'tk={tk}')
     a = nav[16] ** 2
-    if __name__ == '__main__':
-        print(f'a={a}')
+    # if __name__ == '__main__':
+    #     print(f'a={a}')
     n0 = np.sqrt(Uc / a ** 3)
-    if __name__ == '__main__':
-        print(f'n0={n0}')
+    # if __name__ == '__main__':
+    #     print(f'n0={n0}')
     n = n0 + nav[11]
-    if __name__ == '__main__':
-        print(f'n={n}')
+    # if __name__ == '__main__':
+    #     print(f'n={n}')
     # print(nav[11])
     Mk = n * tk + nav[12]
-    if __name__ == '__main__':
-        print(f'Mk={Mk}')
+    # if __name__ == '__main__':
+    #     print(f'Mk={Mk}')
     Ek = Mk
     e = nav[14]
-    if __name__ == '__main__':
-        print(f'e={e}')
+    # if __name__ == '__main__':
+    #     print(f'e={e}')
     Ek_old = 0
-    while abs(Ek - Ek_old) != 0:
+    while abs(Ek - Ek_old) > 1e-12:
         Ek_old = Ek
         Ek = Mk + e * np.sin(Ek)
     Vk = np.arctan2(np.sqrt(1 - e ** 2) * np.sin(Ek), np.cos(Ek) - e)
-    if __name__ == '__main__':
-        print(f'Vk={Vk}')
+    # if __name__ == '__main__':
+    #     print(f'Vk={Vk}')
     Phi_k = Vk + nav[23]
-    if __name__ == '__main__':
-        print(f'Phi_k={Phi_k}')
+    # if __name__ == '__main__':
+    #     print(f'Phi_k={Phi_k}')
     Cuc = nav[13]
     Cus = nav[15]
     Cic = nav[18]
@@ -120,23 +120,23 @@ def sat_position(time, nav):
     Crc = nav[22]
     Crs = nav[10]
     delta_u = Cuc * np.cos(2 * Phi_k) + Cus * np.sin(2 * Phi_k)
-    if __name__ == '__main__':
-        print(f'delta_u={delta_u}')
+    # if __name__ == '__main__':
+    #     print(f'delta_u={delta_u}')
     delta_i = Cic * np.cos(2 * Phi_k) + Cis * np.sin(2 * Phi_k)
-    if __name__ == '__main__':
-        print(f'delta_i={delta_i}')
+    # if __name__ == '__main__':
+    #     print(f'delta_i={delta_i}')
     delta_r = Crc * np.cos(2 * Phi_k) + Crs * np.sin(2 * Phi_k)
-    if __name__ == '__main__':
-        print(f'delta_r={delta_r}')
+    # if __name__ == '__main__':
+    #     print(f'delta_r={delta_r}')
     u = Phi_k + delta_u
-    if __name__ == '__main__':
-        print(f'u={u}')
+    # if __name__ == '__main__':
+    #     print(f'u={u}')
     r = a * (1 - e * np.cos(Ek)) + delta_r
-    if __name__ == '__main__':
-        print(f'r={r}')
+    # if __name__ == '__main__':
+    #     print(f'r={r}')
     i = nav[21] + delta_i + nav[25] * tk
-    if __name__ == '__main__':
-        print(f'i={i}')
+    # if __name__ == '__main__':
+    #     print(f'i={i}')
     x = r * np.cos(u)
     y = r * np.sin(u)
     omega0 = nav[19]
@@ -144,8 +144,8 @@ def sat_position(time, nav):
     omegaC = nav[24]
     # print(f'omegaC={omegaC}')
     Omega = omega0 + (omegaC - Wec) * tk - Wec * toe
-    if __name__ == '__main__':
-        print(f'Omega={Omega}')
+    # if __name__ == '__main__':
+    #     print(f'Omega={Omega}')
     X = x * np.cos(Omega) - y * np.cos(i) * np.sin(Omega)
     Y = x * np.sin(Omega) + y * np.cos(i) * np.cos(Omega)
     Z = y * np.sin(i)

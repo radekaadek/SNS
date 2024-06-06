@@ -60,8 +60,8 @@ poprawnej definicji pętli związanej z czasem obserwacji w ciągu całej doby
 """
 week, tow = date2tow(time_start)[0:2]
 week_end, tow_end = date2tow(time_end)[0:2]
-tow = 213300
-week = 2304
+# tow = 213300
+# week = 2304
 #%% Obliczenia
 
 
@@ -104,7 +104,7 @@ for time in range(tow, tow_end+1, 30):
     for sat in observed_satelites:
         satelite_index = inav == sat
         nav_sat = nav[satelite_index]
-        dt = np.abs(nav_sat[:,17] - tow)
+        dt = np.abs(nav_sat[:,17] - time)
         index = np.argmin(dt)
         nav_sat = nav_sat[index]
         observed_data.append(nav_sat)
@@ -191,7 +191,7 @@ for time in range(tow, tow_end+1, 30):
                     dJ = 0
                 else:
                     dT = topo(h, el)
-                    dJ = jono(tow, b, l, el, az)
+                    dJ = jono(time, b, l, el, az)
                 # print(f"{dT=}, {dJ=}\n")
                 # cdts = c * dts
                 Pcalc = rho[i] - c*dts + c*dtr + dT + dJ
