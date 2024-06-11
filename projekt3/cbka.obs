@@ -1,7 +1,7 @@
 % program   : RTKPOST ver.2.4.3 b34
-% inp file  : C:\Users\krisr\OneDrive\Pulpit\Studia\R2\SNS\p3\WUTR00POL_R_20241390000_01D_30S_MO.rnx
-% inp file  : C:\Users\krisr\OneDrive\Pulpit\Studia\R2\SNS\p3\asg\CBKA1390.24o
-% inp file  : C:\Users\krisr\OneDrive\Pulpit\Studia\R2\SNS\p3\asg\CBKA1390.24n
+% inp file  : WUTR00POL_R_20241390000_01D_30S_MO.rnx
+% inp file  : CBKA1390.24o
+% inp file  : CBKA1390.24n
 % obs start : 2024/05/18 00:00:00.0 GPST (week2314 518400.0s)
 % obs end   : 2024/05/18 23:59:30.0 GPST (week2314 604770.0s)
 % pos mode  : Kinematic

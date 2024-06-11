@@ -20,7 +20,7 @@ def xyz_neu(xyz, actual_pos):
 
 
 
-wyniki = np.loadtxt('res.obs', comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11))
+wyniki = np.loadtxt('cbka.obs', comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11))
 actual_pos = np.array([3655333.847, 1403901.067, 5018038.047])
 
 
@@ -31,7 +31,7 @@ actual_pos_neu = np.array([0, 0, 0])
 
 # dates
 dates = []
-with open('res.obs') as f:
+with open('cbka.obs') as f:
     for line in f:
         if not line.startswith('%'):
             date = line.split()[0]
