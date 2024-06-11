@@ -65,14 +65,17 @@ for station in stations:
     ax[1].set_title('E')
     ax[2].plot(dates, wyniki[:, 2])
     ax[2].set_title('U')
-    plt.show()
+    # plt.show()
+    # save it to p1_{station}.png
+    fig.savefig(f'p1_{station}.png')
 
     # show a plot of ratio with respect to time
     fig, ax = plt.subplots()
     ax.plot(dates, wyniki[:, -1])
     # ax.set_title('Ratio test with respect to time')
     ax.set_title(f'{station_upper} Ratio test with respect to time')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p2_{station}.png')
 
     # show a bar graph of counts of Q
     qs = np.unique(wyniki[:, 3])
@@ -86,14 +89,16 @@ for station in stations:
     ax.set_xticklabels(['Fixed', 'Float'])
     # ax.set_title('Number of fixed and float solutions')
     ax.set_title(f'{station_upper} Number of fixed and float solutions')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p3_{station}.png')
 
     # show a plot of error to actual position with respect to time
     fig, ax = plt.subplots()
     ax.plot(dates, diff_to_actual)
     # ax.set_title('Difference to actual position with respect to time')
     ax.set_title(f'{station_upper} Difference to actual position with respect to time')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p4_{station}.png')
 
 
     # show a bar plot of rmse, stdev, max and mean of error to actual position
@@ -105,7 +110,8 @@ for station in stations:
     ax.bar(['RMSE', 'Stdev', 'Max', 'Mean'], [rmse, stdev, max_diff, mean_diff])
     # ax.set_title('Error to actual position metrics')
     ax.set_title(f'{station_upper} Error to actual position metrics')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p5_{station}.png')
 
 
 
@@ -120,7 +126,8 @@ for station in stations:
     # add a legend that shows the color scale of z
     cbar = plt.colorbar(ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5))
     cbar.set_label('U')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p6_{station}.png')
 
     # sort observations by test ratio and show the difference to the actual position
     ratio_sorted = wyniki[wyniki[:, -1].argsort()]
@@ -132,7 +139,8 @@ for station in stations:
     # add labels
     ax.set_xlabel('Sorted observation number')
     ax.set_ylabel('Difference to actual position')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p7_{station}.png')
 
     # now show the same plot but draw a trend line
     fig, ax = plt.subplots()
@@ -145,7 +153,8 @@ for station in stations:
     # add labels
     ax.set_xlabel('Trend line')
     ax.set_ylabel('Difference to actual position')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p8_{station}.png')
 
     # show a 3D plot of x, y, z
     fig = plt.figure()
@@ -156,7 +165,8 @@ for station in stations:
     ax.set_xlabel('N')
     ax.set_ylabel('E')
     ax.set_zlabel('U')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p9_{station}.png')
 
 
     # count the average error to actual for every number of ns
@@ -170,7 +180,8 @@ for station in stations:
     ax.set_ylabel('Mean difference to actual position')
     # ax.set_title('Mean difference to actual position with respect to number of satellites visible')
     ax.set_title(f'{station_upper} Mean difference to actual position with respect to number of satellites visible')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p10_{station}.png')
 
     # now show the same plot but with difference to mean position
     fig, ax = plt.subplots()
@@ -182,24 +193,27 @@ for station in stations:
     ax.set_ylabel('Mean difference to mean position')
     # ax.set_title('Mean difference to mean position with respect to number of satellites visible')
     ax.set_title(f'{station_upper} Mean difference to mean position with respect to number of satellites visible')
-    plt.show()
+    # plt.show()
+    fig.savefig(f'p11_{station}.png')
+    # close all plots
+    plt.close('all')
 
     # show an animated 3D plot of x, y, z
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
     # set axis limits
     # ax.set_title('Animated X, Y, Z')
-    ax.set_xlabel('N')
-    ax.set_ylabel('E')
-    ax.set_zlabel('U')
-    for i in range(wyniki.shape[0]):
-        ax.set_xlim(np.min(wyniki[:, 0]), np.max(wyniki[:, 0]))
-        ax.set_ylim(np.min(wyniki[:, 1]), np.max(wyniki[:, 1]))
-        ax.set_zlim(np.min(wyniki[:, 2]), np.max(wyniki[:, 2]))
-        # ax.set_title(f"N, E, U at {dates[i]}")
-        ax.set_title(f"{station_upper} N, E, U at {dates[i]}")
-        ax.scatter(wyniki[:i, 0], wyniki[:i, 1], wyniki[:i, 2])
-        plt.pause(0.00001)
-        # set title to date
-        ax.clear()
+    # ax.set_xlabel('N')
+    # ax.set_ylabel('E')
+    # ax.set_zlabel('U')
+    # for i in range(wyniki.shape[0]):
+    #     ax.set_xlim(np.min(wyniki[:, 0]), np.max(wyniki[:, 0]))
+    #     ax.set_ylim(np.min(wyniki[:, 1]), np.max(wyniki[:, 1]))
+    #     ax.set_zlim(np.min(wyniki[:, 2]), np.max(wyniki[:, 2]))
+    #     # ax.set_title(f"N, E, U at {dates[i]}")
+    #     ax.set_title(f"{station_upper} N, E, U at {dates[i]}")
+    #     ax.scatter(wyniki[:i, 0], wyniki[:i, 1], wyniki[:i, 2])
+    #     plt.pause(0.00001)
+    #     # set title to date
+    #     ax.clear()
 
