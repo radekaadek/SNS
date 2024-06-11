@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import time
+from pyproj import Geod
+import pyproj
 
 # % program   : RTKPOST ver.2.4.3 b34
 # % inp file  : WUTR00POL_R_20241390000_01D_30S_MO.rnx
@@ -39,18 +41,31 @@ import time
 # 2024/05/18 00:04:30.000   3655333.8130   1403901.0372   5018037.9773   1   8   0.0117   0.0064   0.0127   0.0057   0.0048   0.0095   0.00    6.2
 # 2024/05/18 00:05:00.000   3655333.8140   1403901.0385   5018037.9832   1   8   0.0117   0.0065   0.0127   0.0056   0.0047   0.0095   0.00    5.7
 # 2024/05/18 00:05:30.000   3655333.8166   1403901.0390   5018037.9865   1   8   0.0117   0.0064   0.0127   0.0057   0.0047   0.0094   0.00    5.2
-wyniki = np.loadtxt('res.obs', comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11))
 
-# read the line with % ref pos
-with open('res.obs') as f:
-    for line in f:
-        if line.startswith('% ref pos'):
-            ref_pos = line.split()[4:7]
-            break
-    else:
-        print('no ref pos found')
-        ref_pos = [0, 0, 0]
-ref_pos = np.array([float(x) for x in ref_pos])
+def xyz_neu(xyz, actual_pos):
+    # convert xyz to blh of the reference position
+    xyz_proj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
+    blh_proj = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+    transformer = pyproj.Transformer.from_proj(xyz_proj, blh_proj)
+    ref_blh = transformer.transform(actual_pos[0], actual_pos[1], actual_pos[2])
+    # convert xyz to neu
+    Rneu = np.array([[-np.sin(ref_blh[0])*np.cos(ref_blh[1]), -np.sin(ref_blh[0])*np.sin(ref_blh[1]), np.cos(ref_blh[0])],
+                     [-np.sin(ref_blh[1]), np.cos(ref_blh[1]), 0],
+                     [-np.cos(ref_blh[0])*np.cos(ref_blh[1]), -np.cos(ref_blh[0])*np.sin(ref_blh[1]), -np.sin(ref_blh[0])]])
+    Rneu = Rneu.T
+    neu = np.dot(Rneu, xyz - actual_pos[:, None])
+    return neu
+
+
+
+wyniki = np.loadtxt('res.obs', comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11))
+actual_pos = np.array([3655333.847, 1403901.067, 5018038.047])
+
+
+# convert all to neu
+neu = xyz_neu(wyniki[:, :3].T, actual_pos)
+wyniki[:, :3] = neu.T
+actual_pos_neu = np.array([0, 0, 0])
 
 # dates
 dates = []
@@ -76,29 +91,35 @@ dates = dates[1:]
 
 # plot x, y, z with respect to time
 fig, ax = plt.subplots(3, 1)
-fig.suptitle('X, Y, Z with respect to time')
+fig.suptitle('N, E, U with respect to time')
 ax[0].plot(dates, wyniki[:, 0])
-ax[0].set_title('x')
+ax[0].set_title('N')
 ax[1].plot(dates, wyniki[:, 1])
-ax[1].set_title('y')
+ax[1].set_title('E')
 ax[2].plot(dates, wyniki[:, 2])
-ax[2].set_title('z')
+ax[2].set_title('U')
 plt.show()
+
+# show a plot of ratio with respect to time
+fig, ax = plt.subplots()
+ax.plot(dates, wyniki[:, -1])
+ax.set_title('Ratio with respect to time')
+plt.show()
+
 
 # show a 2D plot of x and y and color opacity based on z
 fig, ax = plt.subplots()
 mean_pos = np.mean(wyniki[:, :3], axis=0)
-actual_pos = np.array([3655333.847, 1403901.067, 5018038.047])
-ax.scatter(wyniki[:, 0] - actual_pos[0], wyniki[:, 1] - actual_pos[1], c=wyniki[:, 2], alpha=0.5)
-ax.set_title('X and Y with respect to actual position colored by Z')
+ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5)
+ax.set_title('N and E with respect to actual position colored by U')
 # add a legend that shows the color scale of z
-cbar = plt.colorbar(ax.scatter(wyniki[:, 0] - actual_pos[0], wyniki[:, 1] - actual_pos[1], c=wyniki[:, 2], alpha=0.5))
-cbar.set_label('Z')
+cbar = plt.colorbar(ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5))
+cbar.set_label('U')
 plt.show()
 
 # sort observations by test ratio and show the difference to the actual position
 ratio_sorted = wyniki[wyniki[:, -1].argsort()]
-diff_to_actual = np.sqrt(np.sum((ratio_sorted[:, :3] - actual_pos) ** 2, axis=1))
+diff_to_actual = np.sqrt(np.sum((ratio_sorted[:, :3] - actual_pos_neu) ** 2, axis=1))
 fig, ax = plt.subplots()
 ax.plot(diff_to_actual)
 ax.set_title('Difference to actual position sorted by test ratio')
@@ -123,10 +144,10 @@ plt.show()
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(wyniki[:, 0], wyniki[:, 1], wyniki[:, 2])
-ax.set_title('X, Y, Z')
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
+ax.set_title('N, E, U')
+ax.set_xlabel('N')
+ax.set_ylabel('E')
+ax.set_zlabel('U')
 plt.show()
 
 
@@ -134,7 +155,7 @@ plt.show()
 ns = np.unique(wyniki[:, 4])
 actual_diff = []
 for n in ns:
-    actual_diff.append(np.mean(np.sqrt(np.sum((wyniki[wyniki[:, 4] == n, :3] - actual_pos) ** 2, axis=1))))
+    actual_diff.append(np.mean(np.sqrt(np.sum((wyniki[wyniki[:, 4] == n, :3] - actual_pos_neu) ** 2, axis=1))))
 fig, ax = plt.subplots()
 ax.bar(ns, actual_diff)
 ax.set_xlabel('Number of satellites visible')
@@ -158,14 +179,14 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 # set axis limits
 # ax.set_title('Animated X, Y, Z')
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
+ax.set_xlabel('N')
+ax.set_ylabel('E')
+ax.set_zlabel('U')
 for i in range(wyniki.shape[0]):
     ax.set_xlim(np.min(wyniki[:, 0]), np.max(wyniki[:, 0]))
     ax.set_ylim(np.min(wyniki[:, 1]), np.max(wyniki[:, 1]))
     ax.set_zlim(np.min(wyniki[:, 2]), np.max(wyniki[:, 2]))
-    ax.set_title(f"X, Y, Z at {dates[i]}")
+    ax.set_title(f"N, E, U at {dates[i]}")
     ax.scatter(wyniki[:i, 0], wyniki[:i, 1], wyniki[:i, 2])
     plt.pause(0.00001)
     # set title to date
