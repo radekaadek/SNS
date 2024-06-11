@@ -46,6 +46,7 @@ for station in stations:
                 time = [int(float(x)) for x in time]
                 obs_date = datetime.datetime(date[0], date[1], date[2], time[0], time[1], time[2])
                 dates.append(obs_date)
+    # dates = np.array(dates)
     dates = np.array(dates)
 
     # first row is bad, remove it
@@ -54,9 +55,10 @@ for station in stations:
     diff_to_actual = np.sqrt(np.sum((wyniki[:, :3] - actual_pos_neu) ** 2, axis=1))
 
 
-
+    size = (16, 9)
     # plot x, y, z with respect to time
-    fig, ax = plt.subplots(3, 1)
+    # set a big size
+    fig, ax = plt.subplots(3, 1, figsize=size)
     # fig.suptitle('N, E, U with respect to time')
     fig.suptitle(f'{station_upper} N, E, U with respect to time')
     ax[0].plot(dates, wyniki[:, 0])
@@ -70,7 +72,7 @@ for station in stations:
     fig.savefig(f'p1_{station}.png')
 
     # show a plot of ratio with respect to time
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     ax.plot(dates, wyniki[:, -1])
     # ax.set_title('Ratio test with respect to time')
     ax.set_title(f'{station_upper} Ratio test with respect to time')
@@ -82,7 +84,7 @@ for station in stations:
     q_counts = []
     for q in qs:
         q_counts.append(np.sum(wyniki[:, 3] == q))
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     ax.bar(qs, q_counts)
     # 1 means fixed, 2 means float
     ax.set_xticks([1, 2])
@@ -93,7 +95,7 @@ for station in stations:
     fig.savefig(f'p3_{station}.png')
 
     # show a plot of error to actual position with respect to time
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     ax.plot(dates, diff_to_actual)
     # ax.set_title('Difference to actual position with respect to time')
     ax.set_title(f'{station_upper} Difference to actual position with respect to time')
@@ -106,7 +108,7 @@ for station in stations:
     stdev = np.std(diff_to_actual)
     max_diff = np.max(diff_to_actual)
     mean_diff = np.min(diff_to_actual)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     ax.bar(['RMSE', 'Stdev', 'Max', 'Mean'], [rmse, stdev, max_diff, mean_diff])
     # ax.set_title('Error to actual position metrics')
     ax.set_title(f'{station_upper} Error to actual position metrics')
@@ -119,7 +121,7 @@ for station in stations:
 
 
     # show a 2D plot of x and y and color opacity based on z
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     mean_pos = np.mean(wyniki[:, :3], axis=0)
     ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5)
     ax.set_title('N and E with respect to actual position colored by U')
@@ -132,7 +134,7 @@ for station in stations:
     # sort observations by test ratio and show the difference to the actual position
     ratio_sorted = wyniki[wyniki[:, -1].argsort()]
     diff_to_actual = np.sqrt(np.sum((ratio_sorted[:, :3] - actual_pos_neu) ** 2, axis=1))
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     ax.plot(diff_to_actual)
     # ax.set_title('Difference to actual position sorted by test ratio')
     ax.set_title(f'{station_upper} Difference to actual position sorted by test ratio')
@@ -143,7 +145,7 @@ for station in stations:
     fig.savefig(f'p7_{station}.png')
 
     # now show the same plot but draw a trend line
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     # calculate the trend line
     trend = np.polyfit(np.arange(diff_to_actual.size), diff_to_actual, 1)
     trend_line = np.polyval(trend, np.arange(diff_to_actual.size))
@@ -161,7 +163,7 @@ for station in stations:
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(wyniki[:, 0], wyniki[:, 1], wyniki[:, 2])
     # ax.set_title('N, E, U')
-    ax.set_title(f'{station_upper} N, E, U')
+    ax.set_title(f'{station_upper} N, E, U reciever position')
     ax.set_xlabel('N')
     ax.set_ylabel('E')
     ax.set_zlabel('U')
@@ -174,7 +176,7 @@ for station in stations:
     actual_diff = []
     for n in ns:
         actual_diff.append(np.mean(np.sqrt(np.sum((wyniki[wyniki[:, 4] == n, :3] - actual_pos_neu) ** 2, axis=1))))
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     ax.bar(ns, actual_diff)
     ax.set_xlabel('Number of satellites visible')
     ax.set_ylabel('Mean difference to actual position')
@@ -184,7 +186,7 @@ for station in stations:
     fig.savefig(f'p10_{station}.png')
 
     # now show the same plot but with difference to mean position
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=size)
     mean_diff = []
     for n in ns:
         mean_diff.append(np.mean(np.sqrt(np.sum((wyniki[wyniki[:, 4] == n, :3] - mean_pos) ** 2, axis=1))))
