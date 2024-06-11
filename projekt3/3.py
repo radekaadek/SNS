@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import time
-from pyproj import Geod
 import pyproj
 
 # % program   : RTKPOST ver.2.4.3 b34
@@ -86,6 +85,7 @@ dates = np.array(dates)
 # first row is bad, remove it
 wyniki = wyniki[1:, :]
 dates = dates[1:]
+diff_to_actual = np.sqrt(np.sum((wyniki[:, :3] - actual_pos_neu) ** 2, axis=1))
 
 
 
@@ -103,8 +103,44 @@ plt.show()
 # show a plot of ratio with respect to time
 fig, ax = plt.subplots()
 ax.plot(dates, wyniki[:, -1])
-ax.set_title('Ratio with respect to time')
+ax.set_title('Ratio test with respect to time')
 plt.show()
+
+# show a bar graph of counts of Q
+qs = np.unique(wyniki[:, 3])
+q_counts = []
+for q in qs:
+    q_counts.append(np.sum(wyniki[:, 3] == q))
+fig, ax = plt.subplots()
+ax.bar(qs, q_counts)
+# 1 means fixed, 2 means float
+ax.set_xticks([1, 2])
+ax.set_xticklabels(['Fixed', 'Float'])
+ax.set_title('Number of fixed and float solutions')
+plt.show()
+
+# show a plot of error to actual position with respect to time
+fig, ax = plt.subplots()
+ax.plot(dates, diff_to_actual)
+ax.set_title('Difference to actual position with respect to time')
+plt.show()
+
+
+# show a bar plot of rmse, stdev, max and mean of error to actual position
+rmse = np.sqrt(np.mean(diff_to_actual ** 2))
+stdev = np.std(diff_to_actual)
+max_diff = np.max(diff_to_actual)
+mean_diff = np.min(diff_to_actual)
+fig, ax = plt.subplots()
+ax.bar(['RMSE', 'Stdev', 'Max', 'Mean'], [rmse, stdev, max_diff, mean_diff])
+ax.set_title('Error to actual position metrics')
+for i, v in enumerate([rmse, stdev, max_diff, mean_diff]):
+    ax.text(i, v + 0.1, str(round(v, 2)))
+plt.show()
+
+
+
+
 
 
 # show a 2D plot of x and y and color opacity based on z
