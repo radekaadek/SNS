@@ -23,9 +23,9 @@ stations = ['cbka', 'joz2', 'nodw']
 for station in stations:
     file_name = f'{station}.obs'
     station_upper = station.upper()
-    wyniki = np.loadtxt(file_name, comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11))
+    wyniki = np.loadtxt(file_name, comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
     actual_pos = np.array([3655333.847, 1403901.067, 5018038.047])
-
+    print(wyniki)
 
     # convert all to neu
     neu = xyz_neu(wyniki[:, :3].T, actual_pos)
