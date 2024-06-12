@@ -3,11 +3,35 @@ from roz import satpos, satelite_position
 from top import topo
 from jon import jono
 import numpy as np
+import argparse
+
+# parse mask, tropospheric boolean, ionospheric boolean, reference coordinates, observation file, navigation file
+parser = argparse.ArgumentParser()
+parser.add_argument('--mask', type=int, default=10, help='Elevation mask')
+parser.add_argument('--tropo', type=bool, default=True, help='Tropospheric correction')
+parser.add_argument('--iono', type=bool, default=True, help='Ionospheric correction')
+parser.add_argument('--obs', type=str, default='JOZ200POL_R_20240650000_01D_30S_MO.rnx', help='Observation file')
+parser.add_argument('--nav', type=str, default='BRDC00WRD_R_20240650000_01D_GN.rnx', help='Navigation file')
+parser.add_argument('--x0', type=float, default=3660000., help='X coordinate of receiver')
+parser.add_argument('--y0', type=float, default=1400000., help='Y coordinate of receiver')
+parser.add_argument('--z0', type=float, default=5000000., help='Z coordinate of receiver')
+
+args = parser.parse_args()
+
+# elevation mask
+mask = args.mask
+tropo = args.tropo
+iono = args.iono
+xr0 = [args.x0, args.y0, args.z0]
+# observation file path
+obs_file = args.obs
+nav_file = args.nav
+
 
 # cieżka do pliku nawigacyjnego
-nav_file = 'BRDC00WRD_R_20240650000_01D_GN.rnx'
+# nav_file = 'BRDC00WRD_R_20240650000_01D_GN.rnx'
 # cieżka do pliku obserwacyjnego
-obs_file = 'JOZ200POL_R_20240650000_01D_30S_MO.rnx'
+# obs_file = 'JOZ200POL_R_20240650000_01D_30S_MO.rnx'
 
 # zdefiniowanie czasu obserwacji: daty początkowej i końcowej
 # dla pierwszej epoki z pliku będzie to:
@@ -47,12 +71,7 @@ def Rneu(phi, lamb):
 zdefiniowanie współrzędnych przybliżonych odbiornika - mogą to być współrzędne z nagłówka 
 pliku obserwacyjnego, skopiowane "z palca" lub pobierane automatycznie z treci nagłówka pliku Rinex
 """
-xr0 = [3660000.,  1400000.,  5000000.]
-
-"""
-Wprowadzenie ustawień, takich jak maska obserwacji, czy typ poprawki troposferycznej
-"""
-el_mask = 10 # elevation mask/cut off in degrees
+# xr0 = [3660000.,  1400000.,  5000000.]
 
 """
 Przeliczenie daty początkowej i końcowej do sekund tygodnia GPS - niezbędne w celu
@@ -78,19 +97,18 @@ c = 299792458
 observed_satelites = [25, 31, 32, 29, 28, 24, 20, 11, 12, 6]
 
 observed_data = []
-for sat in observed_satelites:
-    satelite_index = inav == sat
-    nav_sat = nav[satelite_index]
-    dt = np.abs(nav_sat[:,17] - tow)
-    index = np.argmin(dt)
-    nav_sat = nav_sat[index]
-    observed_data.append(nav_sat)
-# sats = satelity
-observed_data = np.array(observed_data)
+# for sat in observed_satelites:
+#     satelite_index = inav == sat
+#     nav_sat = nav[satelite_index]
+#     dt = np.abs(nav_sat[:,17] - tow)
+#     index = np.argmin(dt)
+#     nav_sat = nav_sat[index]
+#     observed_data.append(nav_sat)
+# # sats = satelity
+# observed_data = np.array(observed_data)
 
 # sats = iobs[idx_t, 0]
 # Pobs = obs[idx_t, 0]
-mask = 10
 iters = 5
 final_xyz = []
 for time in range(tow, tow_end+1, 30):
@@ -190,8 +208,14 @@ for time in range(tow, tow_end+1, 30):
                     dT = 0
                     dJ = 0
                 else:
-                    dT = topo(h, el)
-                    dJ = jono(time, b, l, el, az)
+                    if tropo:
+                        dT = topo(h, el)
+                    else:
+                        dT = 0
+                    if iono:
+                        dJ = jono(time, b, l, el, az)
+                    else:
+                        dJ = 0
                 # print(f"{dT=}, {dJ=}\n")
                 # cdts = c * dts
                 Pcalc = rho[i] - c*dts + c*dtr + dT + dJ
@@ -243,516 +267,4 @@ ax[2].set_title(f'Z error, RMS = {RMS}m, Standard deviation = {round(stdev_z, 2)
 ax[2].legend()
 
 plt.show()
-
-"""
-Otwieramy dużą pętlę
-for t in range(tow, tow_end+1, dt): gdzie dt równe 30
-"""
-"""
-Wewnątrz tej pętli, zajmujemy się obserwacjami wyłącznie dla jednej epoki (epoka t), zatem:
-    1. Wybieramy obserwacje dla danej epoki, na podstawie tablicy iobs oraz naszej epoki t
-    czyli, wybieramy te obserwacje z tablicy obs, dla których w tablicy iobs ostatnia kolumna 
-    jest równa t - przypisujemy do zmiennej np. Pobs
-    2. wybieramy satelity, obserwowane w danej epoce, na podstawie tablicy iobs - na podstawie 
-    naszego t - przypisujemy do zmiennej np. sats
-    3. Definiujemy wartości przybliżone błąd zegara odbiornika
-    dtr = 0 oraz czasu propagacji sygnału tau = 0.07
-    4. Najprawdopodobniej przyda się definicja pustych wektorów, np. zawierających 
-    odległosci geometryczne (wartoci przybliżone na podstawie tau)
-
-        
-    Przechodzimy do iteracyjnego obliczenia współrzędnych odbiornika - w pierwszych testach naszego programu, zróbmy obliczenia nieiteracyjnie, 
-    ale pamiętajmy o tym, że będzie trzeba przygotować kod do działania w pętli:
-        
-        Po weryfikacji działania programu, można zamienić pętlę for na pętle while, dopisując
-        warunek zbieżnoci kolejnych współrzędnych - skróci nam to czas obliczeń, ponieważ 
-        najczęściej wystarcza mniej iteracji niż 5
-        
-        for i in range(5):
-            Wykonujemy kolejne obliczenia, niezależnie dla kolejnych satelitów, obserwowanych
-            w danej epoce, czyli przechodzimy do pętli:
-                for sat in sats: (przyda nam się tutaj również indeks satelity, np. for i, sat in enumerate(sats):)
-                    Obliczamy czas emisji sygnału:
-                        ts = t - tau + dtr
-                    Kolejne kroki, znane z poprzedniego ćwiczenia:
-                    wyznaczamy współrzędne satelity xs (oraz błąd zegara satelity dts) na czas ts (UWAGA, w kolejnych iteracjach
-                    czas ts będzie się zmieniał i aktualizował, neizależnie dla każdego satelity!!!)
-                    
-                    Odległosć geometryczna:
-                        1. rotacja do układu chwilowego - otrzymujemy xs_rot
-                        2. Na podstawie xs_rot obliczamy odległosć geometryczną rho
-                        
-                    Obliczamy elewację i azymut
-                    Macierz Rneu definiujemy na podstawie x0, przeliczonego do współrzędnych
-                    phi, lambda, algorytmem Hirvonena
-                    
-                    Odrzucamy satelity znajdujące się poniżej maski
-                    
-                        Obliczamy poprawki atmosferyczne - dopiero wówczas, kiedy działać będzie nam program bez uwzględniania poprawek:
-                            trop oraz iono
-                    
-                    Wyznaczamy pseudoodległosć przybliżoną (obliczoną), jako:
-                        Pcalc = rho - c*dts + dtr + trop + iono
-                        
-                    Wyznaczamy kolejne elementy wektora wyrazów wolnych y, jako:
-                        y = Pobs - Pcalc
-                        
-                    Budujemy kolejne wiersze macierzy A:
-                
-                Kończymy pętle dla kolejnych satelitów
-                
-                1. Łączymy ze sobą elementy wektora wyrazów wolych w jeden wektor
-                2. Łączymy ze sobą kolejnę wiersze macierz współczynników A
-                3. Rozwiązujemy układ równań, metodą najmniejszych kwadratów
-                
-                               
-                Aktualizujemy wartosci przybliżone o odpowiednie elementy wektora x
-                xr[0] = x0[0] + x[0]
-                xr[1] = x0[1] + x[1]
-                xr[2] = x0[2] + x[2]
-                dtr = dtr + x[3]/c 
-                
-                Tak obliczone wartoci xr oraz dtr stanowią wartoci wejsciowe do kolejnej iteracji, itd 
-                do skończenia piątej iteracji lub spełnienia warunku zbieżnoci współrzędncyh
-            
-            
-            Po skończeniu 5. iteracji, zbieramy obliczone współrzędne xr - warto zebrać również
-            liczby obserwowanych satelitów, obliczone wartoci współczynników DOP (przynajmniej PDOP)
-            
-"""
-
-
-"""
-Wyznaczenie pozycji użytkownika systemu GNSS na
-podstawie obserwacji kodowych – model pozycjonowania
-Single Point Positioning
-Systemy Nawigacji Satelitarnej
-Maciej Grzymała
-maciej.grzymala@pw.edu.pl
-Wydział Geodezji i Kartografii, Politechnika Warszawska
-Warszawa, 2024
-1 Cel ćwiczenia
-Rozwiązanie pozycji odbiornika, na podstawie danych obserwacji kodowych, z wykorzystaniem modelu
-pozycjonowania Single Point Positioning (SPP).
-Zadanie należy wykonać na podstawie danych obserwacyjnych i nawigacyjnych, zapisanych w plikach
-w formacie RINEX. Program umożliwiać ma obliczenie współrzędnych odbiornika dla całej doby, co 30
-sekund, niezależnie dla każdej epoki.
-Program powinien umożliwiać wybór maski elewacji oraz eliminacje błędów związanych z propagacją
-fali przez atmosferę (przynajmniej opóźnienia troposferycznego).
-Dodatkowo, program może dawać możliwość:
-• wyboru typu obserwacji kodowej;
-• wyboru metody eliminacji błędu troposfery i jonosfery;
-• wykonania wizualizacji, przedstawiających szereg czasowy wyznaczonych współrzędnych punktu lub
-wizualizacji położenia punktu "w czasie rzeczywistym";
-• przeliczenia wyznaczonych współrzędnych XYZ do układów płaskich/lokalnych/krzywoliniowych;
-• obliczenia współczynników DOP.
-2 Kolejność wykonania zadania
-Ustawienia wstępne:
-• odczytanie danych obserwacyjnych i nawigacyjnych, korzystając z funkcji readrnx;
-• zadeklarowanie odpowiedniej daty obliczeń;
-• ustawienie maski elewacji.
-2.1 Rozwiązanie pozycji dla pojedynczej epoki tr:
-1. selekcja pseudoodległości, zapisanych w zmiennej obs, zarejestrowanych w danej epoce tr, i odpowiadających im satelitów, na podstawie identyfikatorów ze zmiennej iobs, w których zapisane są
-czasy obserwacji oraz numery satelitów;
-1
-2. Zdefiniowanie wartości przybliżonych:
-• zadeklarowanie przybliżonych współrzędnych odbiornika x0;
-• δtr = 0s - poprawka do zegara odbiornika
-• τ = 0.07s - czas propagacji sygnału
-Ponieważ niewiadomymi w rozwiązaniu pozycji metodą najmniejszych kwadratów będą przyrosty
-do współrzędnych, a nie same współrzędne odbiornika, toteż cały proces będzie należało wykonać w sposób iteracyjny, aż do momentu, kiedy różnica między współrzędnymi, wyznaczonymi z
-kolejnych iteracji, nie będzie się różnić o więcej niż 1 mm. Zazwyczaj 5 iteracji jest całkowicie
-wystarczające, dlatego zamiast definiowania warunku na spójność wyznaczonych współrzędnych
-z kolejnych iteracji, obliczenia wykonać można dla z góry ustalonej liczby pięciu iteracji.
-Pętla na iteracyjne wyznaczenie szukanej pozycji odbiornika (przyrostów do współrzędnych
-przybliżonych). Dla kolejnej iteracji (1:5):
-Dla każdego satelity obserwowanego w danej epoce:
-1. Obliczenie współrzędnych satelity (współrzędnych xyz oraz błędu zegara satelity, z uwzględnieniem
-poprawki relatywistycznej, δts
-) na czas emisji sygnału t
-s
-:
-t
-s = tr + δtr − τ (1)
-x
-s
-0
-, ys
-0
-, zs
-0
-, δts = satpos(tr, nav) (2)
-*uwaga: czas propagacji sygnału τ w pierwszej iteracji jest wartością znaną, przybliżoną, taką samą
-dla każdego satelity. W kolejnych iteracjach, wartość ta będzie zależeć od obliczonej w poprzedniej
-iteracji odległości geometrycznej: τ = ρ
-s
-0/c i będzie różna dla każdego satelity!
-2. Transformacja współrzędnych satelity do chwilowego układu współrzędnych, na moment odbioru
-sygnału:
-
-
-
-
-
-x
-s
-y
-s
-z
-s
-
-
-
-
-
-=
-
-
-
-
-
-cos(ωEτ ) sin(ωEτ ) 0
-− sin(ωEτ ) cos(ωEτ ) 0
-0 0 1
-
-
-
-
-
-·
-
-
-
-
-
-x
-s
-0
-y
-s
-0
-z
-s
-0
-
-
-
-
-
-(3)
-gdzie:
-• ωE = 7.2921151467 · 10−5
-[
-rad
-s
-] prędkość obrotowa Ziemi
-• τ - czas propagacji sygnału (w pierwszej iteracji wartość znana, przybliżona, w kolejnych
-iteracjach, mając wyznaczoną odległość geometryczną ρ
-s
-r
-: τ = ρ
-s
-0/c
-• c = 299792458.0 [m/s] - prędkość światła
-3. Obliczenie odległości geometrycznej między satelitą a odbiornikiem:
-ρ
-s
-0 =
-p
-(x
-s − x0)
-2 + (y
-s − y0)
-2 + (z
-s − z0)
-2 (4)
-* uwaga: za współrzędne satelity x
-s
-, ys
-, zs przyjmujemy współrzędne “obrócone” do chwilowego
-układu współrzędnych → wynik równania (3);
-*uwaga: z obliczonych odległości geometrycznych (lub czasu propagacji sygnału τ = ρ
-s
-0/c) dla
-danego satelity będziemy musieli skorzystać w kolejnej iteracji, dlatego trzeba te wartości zapisać
-do jakiejś zmiennej.
-4. Wyznaczenie elewacji (i azymutu, niezbędnego do wyznaczenia opóźnienia jonosferycznego) satelity
-oraz odrzucenie satelitów znajdujących się poniżej maski;
-*uwaga! Współrzędne przybliżone odbiornika x0 w pierwszej iteracji mogą być bardzo odległe od
-rzeczywistej pozycji odbiornika. Dlatego w pierwszej iteracji, za wartość elewacji można przyjąć np.
-90◦ dla każdego satelity. W kolejnych iteracjach należy obliczyć odpowiednie kierunki do satelitów,
-najpierw przeliczając współrzędne odbiornika x0 do współrzędnych krzywoliniowych, wykorzystując
-algorytm Hirvonena.
-5. Wyznaczenie opóźnienia troposferycznego δTs
-r
-i jonosferycznego δIs
-r dla danego satelity (wzory w
-odpowiednich prezentacjach).
-2
-Ułożenie równań obserwacyjnych i rozwiązanie pozycji metodą najmniejszych kwadratów:
-(a) Przypomnijmy, uproszczone równanie pseudoodległości dla obserwacji kodowych, z uwzględnieniem wpływu błędów pomiarowych, można przedstawić następująco:
-P
-s
-r = ρ
-s
-r + cδtr − cδts + δIs
-r + δTs
-r
-(5)
-gdzie:
-P
-s
-r
-: pomierzona wartość pseudoodległości między satelitą s i odbiornikiem r
-ρ
-s
-r
-: odległość geometryczna między satelitą s i odbiornikiem r
-c : prędkość światła
-δtr : błąd zegara odbiornika r
-δts
-: błąd zegara satelity s
-δIs
-r
-: wpływ refrakcji jonosferycznej
-δTs
-r
-: wpływ refrakcji troposferycznej
-Lewa stronę równania reprezentuje pomierzona wartość odległości (pseudoodległość) pomiędzy odbiornikiem r i satelitą s. Prawa strona równania są to parametry składające się na tę
-pomierzoną wartość odległości, czyli odległość geometryczna oraz błędy pomiarowe.
-(b) Zapisanie zlinearyzowanych równań obserwacyjnych w taki sposób, aby niewiadome znalazły
-się po jednej stronie równania, a znane po drugiej (jako elementy znane, traktujemy również
-modelowane wartości opóźnienia atmosferyczne i błąd zegara satelity):
-*uwaga! Jako niewiadomą będziemy liczyć przyrost do przybliżonej wartości błędu zegara
-satelity ∆(cδtr) → błąd zegara, z równania (), możemy rozwinąć do: cδtr = cδtr + ∆(cδtr)
-P
-s
-r −ρ
-s
-0 + cδts−cδtr−δTs
-r −δIs
-r =
-−(x
-s − x0)
-ρ
-s
-0
-·∆x+
-−(y
-s−y0)
-ρ
-s
-0
-·∆y+
-−(z
-s − z0)
-ρ
-s
-0
-·∆z+∆(cδtr)
-Lewa strona tego równania stanowić będzie element wektora wyrazów wolnych y. Współczynniki przy niewiadomych, po prawej stronie równania, będą stanowić elementy macierzy równań
-obserwacyjnych A.
-(c) Zbudowanie wektora wyrazów wolnych y oraz macierzy równań obserwacyjnych A. Będą one
-miały tyle wierszy, ile satelitów obserwowanych w danej epoce, powyżej maski elewacji.
-Dla pojedynczego satelity, elementy wektora y i macierzy A będą wyglądać następująco:
-y
-s
-r = P
-s
-r − ρ
-r
-0 + cδts − cδtr − δTs
-r − δIs
-r
-(6)
-A
-s =
-␔
-−(x
-s − xr)
-ρ
-s
-r
-−(y
-s − yr)
-ρ
-s
-r
-−(z
-s − zr)
-ρ
-s
-r
-1
-␕
-(7)
-3
-(d) Układ równań w postaci macierzowej będzie wyglądał następująco:
-
-
-
-
-
-
-
-
-y
-s1
-y
-s2
-.
-.
-.
-y
-sn
-
-
-
-
-
-
-
-
-=
-
-
-
-
-
-
-
-
-
-
-
-−(x
-s1 − x0)
-ρ
-s1
-0
-−(y
-s1 − y0)
-ρ
-s1
-0
-−(z
-s1 − z0)
-ρ
-s1
-0
-1
-−(x
-s2 − x0)
-ρ
-s2
-0
-−(y
-s2 − y0)
-ρ
-s2
-0
-−(z
-s2 − z0)
-ρ
-s2
-0
-1
-.
-.
-.
-.
-.
-.
-.
-.
-.
-.
-.
-.
-−(x
-sn − x0)
-ρ
-sn
-0
-−(y
-sn − y0)
-ρ
-sn
-0
-−(z
-sn − z0)
-ρ
-sn
-0
-1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-∆x
-∆y
-∆z
-cδtr
-
-
-
-
-
-
-
-
-(8)
-y A x
-(e) Powyższy układ równań rozwiązujemy następująco:
-x = (ATA)
-−1ATy (9)
-6. Poprawiamy współrzędne przybliżone odbiornika oraz przybliżoną wartość poprawki zegara odbiornika:
-
-
-
-
-
-xr = x0 + ∆x
-yr = y0 + ∆y
-zr = z0 + ∆z
-
-
-
-
-
-(10)
-δtr = δtr + ∆δtr/c (11)
-UWAGA!!!
-Wyznaczone współrzędne odbiornika xr, yr, zr oraz błąd zegara odbiornika δtr stanowią dane
-wejściowe do następnej iteracji!!! Zatem w kolejnych iteracjach, za współrzędne przybliżone
-odbiornika x0 przyjmujemy obliczone w poprzedniej iteracji współrzędne xr (np. równanie
-4). Natomiast w równaniach (1) i (6) podstawiamy nowy błąd zegara odbiornika δtr. Z kolei
-w równaniu (1) wykorzystujemy obliczone w porpzedniej iteracji odległości geometryczne
-ρ
-s
-0
-i na ich podstawie liczymy czas propagacji sygnalu τ (dla każdego satelity odległość geometryczna i czas propagacji sygnału są inne! Tylko w pierwszej iteracji
-przyjmujemy takie same dla wszystkich satelitów.).
-7. Szukaną pozycją odbiornika, a także kierunkami do satelity czy współczynnikami DOP, są wartości
-obliczone w ostatniej iteracji.
-Obliczone współrzędne odbiornika, dla każdej epoki, należy zapisać do zmiennej i porównać ze
-współrzędnymi referencyjnymi.
-4
-"""
-
 
