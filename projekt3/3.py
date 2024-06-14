@@ -25,7 +25,6 @@ for station in stations:
     station_upper = station.upper()
     wyniki = np.loadtxt(file_name, comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
     actual_pos = np.array([3655333.847, 1403901.067, 5018038.047])
-    print(wyniki)
 
     # convert all to neu
     neu = xyz_neu(wyniki[:, :3].T, actual_pos)
@@ -98,7 +97,7 @@ for station in stations:
     fig, ax = plt.subplots(figsize=size)
     ax.plot(dates, diff_to_actual)
     # ax.set_title('Difference to actual position with respect to time')
-    ax.set_title(f'{station_upper} Difference to actual position with respect to time')
+    ax.set_title(f'{station_upper} Distance to actual position with respect to time')
     # plt.show()
     fig.savefig(f'p4_{station}.png')
 
@@ -107,7 +106,7 @@ for station in stations:
     rmse = np.sqrt(np.mean(diff_to_actual ** 2))
     stdev = np.std(diff_to_actual)
     max_diff = np.max(diff_to_actual)
-    mean_diff = np.min(diff_to_actual)
+    mean_diff = np.mean(diff_to_actual)
     fig, ax = plt.subplots(figsize=size)
     ax.bar(['RMSE', 'Stdev', 'Max', 'Mean'], [rmse, stdev, max_diff, mean_diff])
     # ax.set_title('Error to actual position metrics')
@@ -124,7 +123,7 @@ for station in stations:
     fig, ax = plt.subplots(figsize=size)
     mean_pos = np.mean(wyniki[:, :3], axis=0)
     ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5)
-    ax.set_title('N and E with respect to actual position colored by U')
+    ax.set_title(f'{station_upper} N and E with respect to actual position colored by U')
     # add a legend that shows the color scale of z
     cbar = plt.colorbar(ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5))
     cbar.set_label('U')
@@ -137,10 +136,10 @@ for station in stations:
     fig, ax = plt.subplots(figsize=size)
     ax.plot(diff_to_actual)
     # ax.set_title('Difference to actual position sorted by test ratio')
-    ax.set_title(f'{station_upper} Difference to actual position sorted by test ratio')
+    ax.set_title(f'{station_upper} Distance to actual position sorted by test ratio')
     # add labels
     ax.set_xlabel('Sorted observation number')
-    ax.set_ylabel('Difference to actual position')
+    ax.set_ylabel('Distance to actual position')
     # plt.show()
     fig.savefig(f'p7_{station}.png')
 
@@ -151,10 +150,10 @@ for station in stations:
     trend_line = np.polyval(trend, np.arange(diff_to_actual.size))
     ax.plot(trend_line)
     # ax.set_title('Least squares line of difference to actual position sorted by test ratio')
-    ax.set_title(f'{station_upper} Least squares line of difference to actual position sorted by test ratio')
+    ax.set_title(f'{station_upper} Least squares line of distance to actual position sorted by test ratio')
     # add labels
     ax.set_xlabel('Trend line')
-    ax.set_ylabel('Difference to actual position')
+    ax.set_ylabel('Distance to actual position')
     # plt.show()
     fig.savefig(f'p8_{station}.png')
 
@@ -175,35 +174,28 @@ for station in stations:
     ns = np.unique(wyniki[:, 4])
     actual_diff = []
     for n in ns:
-        actual_diff.append(np.mean(np.sqrt(np.sum((wyniki[wyniki[:, 4] == n, :3] - actual_pos_neu) ** 2, axis=1))))
+        mask = wyniki[:, 4] == n
+        dists2 = []
+        for i in range(wyniki.shape[0]):
+            if mask[i]:
+                dists2.append(np.sqrt(np.sum((wyniki[i, :3] - actual_pos_neu) ** 2)))
+        actual_diff.append(np.mean(dists2))
+
+
     fig, ax = plt.subplots(figsize=size)
     ax.bar(ns, actual_diff)
     ax.set_xlabel('Number of satellites visible')
-    ax.set_ylabel('Mean difference to actual position')
+    ax.set_ylabel('Mean distance to actual position')
     # ax.set_title('Mean difference to actual position with respect to number of satellites visible')
-    ax.set_title(f'{station_upper} Mean difference to actual position with respect to number of satellites visible')
+    ax.set_title(f'{station_upper} Mean distance to actual position with respect to number of satellites visible')
     # plt.show()
     fig.savefig(f'p10_{station}.png')
-
-    # now show the same plot but with difference to mean position
-    fig, ax = plt.subplots(figsize=size)
-    mean_diff = []
-    for n in ns:
-        mean_diff.append(np.mean(np.sqrt(np.sum((wyniki[wyniki[:, 4] == n, :3] - mean_pos) ** 2, axis=1))))
-    ax.bar(ns, mean_diff)
-    ax.set_xlabel('Number of satellites visible')
-    ax.set_ylabel('Mean difference to mean position')
-    # ax.set_title('Mean difference to mean position with respect to number of satellites visible')
-    ax.set_title(f'{station_upper} Mean difference to mean position with respect to number of satellites visible')
-    # plt.show()
-    fig.savefig(f'p11_{station}.png')
-    # close all plots
     plt.close('all')
 
     # show an animated 3D plot of x, y, z
     # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
-    # set axis limits
+    # # set axis limits
     # ax.set_title('Animated X, Y, Z')
     # ax.set_xlabel('N')
     # ax.set_ylabel('E')
