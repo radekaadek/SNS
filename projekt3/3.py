@@ -26,6 +26,8 @@ for station in stations:
     wyniki = np.loadtxt(file_name, comments='%', usecols=(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
     actual_pos = np.array([3655333.847, 1403901.067, 5018038.047])
 
+    
+
     # convert all to neu
     neu = xyz_neu(wyniki[:, :3].T, actual_pos)
     wyniki[:, :3] = neu.T
@@ -48,18 +50,19 @@ for station in stations:
     # dates = np.array(dates)
     dates = np.array(dates)
 
-    # first row is bad, remove it
-    wyniki = wyniki[1:, :]
+    # delete the first row
+    wyniki = wyniki[1:]
     dates = dates[1:]
+
     diff_to_actual = np.sqrt(np.sum((wyniki[:, :3] - actual_pos_neu) ** 2, axis=1))
-
-
+    
+    
     size = (16, 9)
     # plot x, y, z with respect to time
     # set a big size
     fig, ax = plt.subplots(3, 1, figsize=size)
     # fig.suptitle('N, E, U with respect to time')
-    fig.suptitle(f'{station_upper} N, E, U with respect to time')
+    fig.suptitle(f'{station_upper} N, E, U difference to actual position in meters with respect to time')
     ax[0].plot(dates, wyniki[:, 0])
     ax[0].set_title('N')
     ax[1].plot(dates, wyniki[:, 1])
@@ -69,12 +72,12 @@ for station in stations:
     # plt.show()
     # save it to p1_{station}.png
     fig.savefig(f'p1_{station}.png')
-
+    
     # show a plot of ratio with respect to time
     fig, ax = plt.subplots(figsize=size)
     ax.plot(dates, wyniki[:, -1])
     # ax.set_title('Ratio test with respect to time')
-    ax.set_title(f'{station_upper} Ratio test with respect to time')
+    ax.set_title(f'{station_upper} Test ratio with respect to time')
     # plt.show()
     fig.savefig(f'p2_{station}.png')
 
@@ -92,16 +95,16 @@ for station in stations:
     ax.set_title(f'{station_upper} Number of fixed and float solutions')
     # plt.show()
     fig.savefig(f'p3_{station}.png')
-
+    
     # show a plot of error to actual position with respect to time
     fig, ax = plt.subplots(figsize=size)
     ax.plot(dates, diff_to_actual)
     # ax.set_title('Difference to actual position with respect to time')
-    ax.set_title(f'{station_upper} Distance to actual position with respect to time')
+    ax.set_title(f'{station_upper} Euclidian distance in meters to actual position with respect to time')
     # plt.show()
     fig.savefig(f'p4_{station}.png')
-
-
+    
+    
     # show a bar plot of rmse, stdev, max and mean of error to actual position
     rmse = np.sqrt(np.mean(diff_to_actual ** 2))
     stdev = np.std(diff_to_actual)
@@ -110,39 +113,38 @@ for station in stations:
     fig, ax = plt.subplots(figsize=size)
     ax.bar(['RMSE', 'Stdev', 'Max', 'Mean'], [rmse, stdev, max_diff, mean_diff])
     # ax.set_title('Error to actual position metrics')
-    ax.set_title(f'{station_upper} Error to actual position metrics')
+    ax.set_title(f'{station_upper} Euclidian distance error in meters to actual position metrics')
     # plt.show()
     fig.savefig(f'p5_{station}.png')
-
-
-
-
-
-
+    
+    
+    
     # show a 2D plot of x and y and color opacity based on z
     fig, ax = plt.subplots(figsize=size)
     mean_pos = np.mean(wyniki[:, :3], axis=0)
     ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5)
-    ax.set_title(f'{station_upper} N and E with respect to actual position colored by U')
+    ax.set_title(f'{station_upper} Difference of N and E with respect to actual position colored by U in meters')
+    # set equal aspect ratio
+    ax.set_aspect('equal', 'box')
     # add a legend that shows the color scale of z
     cbar = plt.colorbar(ax.scatter(wyniki[:, 0] - actual_pos_neu[0], wyniki[:, 1] - actual_pos_neu[1], c=wyniki[:, 2], alpha=0.5))
     cbar.set_label('U')
     # plt.show()
     fig.savefig(f'p6_{station}.png')
-
+    
     # sort observations by test ratio and show the difference to the actual position
     ratio_sorted = wyniki[wyniki[:, -1].argsort()]
     diff_to_actual = np.sqrt(np.sum((ratio_sorted[:, :3] - actual_pos_neu) ** 2, axis=1))
     fig, ax = plt.subplots(figsize=size)
     ax.plot(diff_to_actual)
     # ax.set_title('Difference to actual position sorted by test ratio')
-    ax.set_title(f'{station_upper} Distance to actual position sorted by test ratio')
+    ax.set_title(f'{station_upper} Euclidian distance in to actual position sorted by test ratio')
     # add labels
     ax.set_xlabel('Sorted observation number')
-    ax.set_ylabel('Distance to actual position')
+    ax.set_ylabel('Euclidian distance to actual position [m]')
     # plt.show()
     fig.savefig(f'p7_{station}.png')
-
+    
     # now show the same plot but draw a trend line
     fig, ax = plt.subplots(figsize=size)
     # calculate the trend line
@@ -150,26 +152,26 @@ for station in stations:
     trend_line = np.polyval(trend, np.arange(diff_to_actual.size))
     ax.plot(trend_line)
     # ax.set_title('Least squares line of difference to actual position sorted by test ratio')
-    ax.set_title(f'{station_upper} Least squares line of distance to actual position sorted by test ratio')
+    ax.set_title(f'{station_upper} Least squares line of euclidian distance to actual position sorted by test ratio')
     # add labels
-    ax.set_xlabel('Trend line')
-    ax.set_ylabel('Distance to actual position')
+    ax.set_xlabel('Sorted observation number')
+    ax.set_ylabel('Euclidian distance to actual position [m]')
     # plt.show()
     fig.savefig(f'p8_{station}.png')
-
+    
     # show a 3D plot of x, y, z
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(wyniki[:, 0], wyniki[:, 1], wyniki[:, 2])
     # ax.set_title('N, E, U')
-    ax.set_title(f'{station_upper} N, E, U reciever position')
+    ax.set_title(f'{station_upper} N, E, U reciever position with respect to actual position in meters')
     ax.set_xlabel('N')
     ax.set_ylabel('E')
     ax.set_zlabel('U')
     # plt.show()
     fig.savefig(f'p9_{station}.png')
-
-
+    
+    
     # count the average error to actual for every number of ns
     ns = np.unique(wyniki[:, 4])
     actual_diff = []
@@ -180,34 +182,33 @@ for station in stations:
             if mask[i]:
                 dists2.append(np.sqrt(np.sum((wyniki[i, :3] - actual_pos_neu) ** 2)))
         actual_diff.append(np.mean(dists2))
-
-
+    
+    
     fig, ax = plt.subplots(figsize=size)
     ax.bar(ns, actual_diff)
     ax.set_xlabel('Number of satellites visible')
-    ax.set_ylabel('Mean distance to actual position')
+    ax.set_ylabel('Mean euclidian distance to actual position [m]')
     # ax.set_title('Mean difference to actual position with respect to number of satellites visible')
-    ax.set_title(f'{station_upper} Mean distance to actual position with respect to number of satellites visible')
+    ax.set_title(f'{station_upper} Mean euclidian distance to actual position with respect to number of satellites visible')
     # plt.show()
     fig.savefig(f'p10_{station}.png')
     plt.close('all')
 
     # show an animated 3D plot of x, y, z
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111, projection='3d')
-    # # set axis limits
-    # ax.set_title('Animated X, Y, Z')
-    # ax.set_xlabel('N')
-    # ax.set_ylabel('E')
-    # ax.set_zlabel('U')
-    # for i in range(wyniki.shape[0]):
-    #     ax.set_xlim(np.min(wyniki[:, 0]), np.max(wyniki[:, 0]))
-    #     ax.set_ylim(np.min(wyniki[:, 1]), np.max(wyniki[:, 1]))
-    #     ax.set_zlim(np.min(wyniki[:, 2]), np.max(wyniki[:, 2]))
-    #     # ax.set_title(f"N, E, U at {dates[i]}")
-    #     ax.set_title(f"{station_upper} N, E, U at {dates[i]}")
-    #     ax.scatter(wyniki[:i, 0], wyniki[:i, 1], wyniki[:i, 2])
-    #     plt.pause(0.00001)
-    #     # set title to date
-    #     ax.clear()
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    # set axis limits
+    ax.set_title('Animated X, Y, Z')
+    ax.set_xlabel('N')
+    ax.set_ylabel('E')
+    ax.set_zlabel('U')
+    for i in range(wyniki.shape[0]):
+        ax.set_xlim(np.min(wyniki[:, 0]), np.max(wyniki[:, 0]))
+        ax.set_ylim(np.min(wyniki[:, 1]), np.max(wyniki[:, 1]))
+        ax.set_zlim(np.min(wyniki[:, 2]), np.max(wyniki[:, 2]))
+        ax.set_title(f"{station_upper} N, E, U at {dates[i]}")
+        ax.scatter(wyniki[:i, 0], wyniki[:i, 1], wyniki[:i, 2])
+        plt.pause(0.00001)
+        # set title to date
+        ax.clear()
 
